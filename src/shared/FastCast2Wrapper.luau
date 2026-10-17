@@ -109,6 +109,13 @@ end
 
 local function ApplyCosmeticSettings(self)
 	local behavior = self.Behavior
+	local visualizeColor = if RunService:IsServer()
+		then Color3.fromRGB(0, 255, 100)
+		else Color3.fromRGB(0, 170, 255)
+	local visualizeSettings = behavior.VisualizeCastSettings or {}
+	visualizeSettings.Debug_SegmentColor = visualizeColor
+	visualizeSettings.Debug_HitColor = visualizeColor
+	behavior.VisualizeCastSettings = visualizeSettings
 	behavior.CosmeticBulletContainer = Workspace
 	behavior.CloneTemplate = true
 
