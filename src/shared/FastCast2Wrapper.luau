@@ -12,6 +12,7 @@ type CasterMode = "Serial" | "Parallel"
 type CastType = "Raycast" | "Blockcast" | "Spherecast"
 type MovementMode = "BulkMoveTo" | "Motor6D"
 type WrapperState = "Uninitialized" | "Initializing" | "Ready" | "Failed" | "Destroyed"
+type CosmeticMode = "Instanced" | "Instanceless"
 
 type WrapperSettings = {
 	Mode: CasterMode,
@@ -21,6 +22,8 @@ type WrapperSettings = {
 	CastType: CastType,
 	BlockcastSize: Vector3,
 	SpherecastRadius: number,
+	CosmeticMode: CosmeticMode,
+	CosmeticProjectileName: string?,
 	SerialConfig: { [string]: any },
 	ParallelConfig: { [string]: any },
 }
@@ -40,6 +43,8 @@ local Wrapper = {
 		CastType = "Raycast",
 		BlockcastSize = Vector3.one,
 		SpherecastRadius = 1,
+		CosmeticMode = "Instanced",
+		CosmeticProjectileName = nil,
 		SerialConfig = {},
 		ParallelConfig = {},
 	} :: WrapperSettings,
@@ -75,6 +80,51 @@ local function AssertNotInitializing(self)
 	if self.State == "Destroyed" then
 		error("FastCast2Wrapper has been destroyed.", 3)
 	end
+end
+
+local function GetDefaultCosmeticTemplate(): BasePart
+	local existing = ReplicatedStorage:FindFirstChild("FastCast2DefaultProjectile")
+	if existing and existing:IsA("BasePart") then
+		return existing
+	end
+
+	local part = Instance.new("Part")
+	part.Name = "FastCast2DefaultProjectile"
+	part.Size = Vector3.one
+	part.Anchored = true
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	part.Material = Enum.Material.Neon
+	part.Color = Color3.fromRGB(255, 220, 80)
+	part.Parent = ReplicatedStorage
+	return part
+end
+
+local function ApplyCosmeticSettings(self)
+	local behavior = self.Behavior
+	behavior.CosmeticBulletContainer = Workspace
+	behavior.CloneTemplate = true
+
+	if self.Settings.CosmeticMode == "Instanceless" then
+		behavior.CosmeticBulletTemplate = nil
+		return
+	end
+
+	local template: BasePart? = nil
+	local projectileName = self.Settings.CosmeticProjectileName
+	if projectileName then
+		local folder = ReplicatedStorage:FindFirstChild("Projectiles")
+		local candidate = folder and folder:FindFirstChild(projectileName)
+		if candidate and candidate:IsA("BasePart") then
+			template = candidate
+		end
+	end
+
+	-- Instanced mode always has a template, even when Projectiles is empty
+	-- or the configured projectile is missing/unsupported.
+	behavior.CosmeticBulletTemplate = template or GetDefaultCosmeticTemplate()
 end
 
 local function ApplyEvents(self, caster)
@@ -124,6 +174,7 @@ local function InitializeInternal(self)
 		error(library, 2)
 	end
 
+	ApplyCosmeticSettings(self)
 	self.Library = library
 	self.Caster = caster
 	self.State = "Ready"
@@ -183,9 +234,28 @@ function Wrapper:SetMode(mode: CasterMode)
 
 	self.Settings.Mode = mode
 	self.Mode = mode
-	-- Update defaults from the selected source implementation.
 	self.Behavior = (if mode == "Serial" then SerialFastCast else ParallelFastCast).newBehavior()
+	ApplyCosmeticSettings(self)
 	return InitializeInternal(self)
+end
+
+function Wrapper:SetCosmeticMode(mode: CosmeticMode)
+	AssertNotInitializing(self)
+	assert(mode == "Instanced" or mode == "Instanceless", "Cosmetic mode must be Instanced or Instanceless.")
+	self.Settings.CosmeticMode = mode
+	ApplyCosmeticSettings(self)
+end
+
+function Wrapper:SetCosmeticProjectile(name: string?)
+	AssertNotInitializing(self)
+	if name ~= nil then
+		local folder = ReplicatedStorage:FindFirstChild("Projectiles")
+		local candidate = folder and folder:FindFirstChild(name)
+		assert(candidate and candidate:IsA("BasePart"), "Projectile must be a BasePart directly inside ReplicatedStorage.Projectiles.")
+	end
+	self.Settings.CosmeticProjectileName = name
+	self.Settings.CosmeticMode = "Instanced"
+	ApplyCosmeticSettings(self)
 end
 
 function Wrapper:SetEvent(eventName: string, callback)
