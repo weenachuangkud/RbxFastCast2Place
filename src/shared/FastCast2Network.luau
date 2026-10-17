@@ -9,6 +9,7 @@ local FirePayload = t.struct({
 	direction = t.vec3,
 	velocityMode = t.uint8, -- 0 = shared speed, 1 = scalar speed, 2 = vector velocity
 	velocity = t.vec3,
+	context = t.uint8, -- 1 = Client, 2 = Server, 3 = Both
 })
 
 local ConfigurationPayload = t.struct({
