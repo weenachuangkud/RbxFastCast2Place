@@ -12,6 +12,9 @@
       "FastCast2Parallel": {
         "$path": "vendor/FastCast2Parallel/src"
       },
+      "Projectiles": {
+        "$path": "projectiles"
+      },
       "Shared": {
         "$path": "src/shared"
       }
