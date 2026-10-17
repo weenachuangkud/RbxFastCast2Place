@@ -1,35 +1,54 @@
 # RbxFastCast2Place
 
-A Roblox Studio development place for testing, debugging, and benchmarking [FastCast2](https://github.com/weenachuangkud/FastCast2).
+A Roblox Studio development place for testing, debugging, and benchmarking the refactored FastCast2 implementations.
+
+## FastCast2 source
+
+This project uses two source repositories directly as pinned Git submodules:
+
+- `vendor/FastCast2Serial` — [FastCast2](https://github.com/weenachuangkud/FastCast2), branch `weenachuangkud-refactor`, pinned to the source commit recorded in the submodule.
+- `vendor/FastCast2Parallel` — [FastCast2Parallel](https://github.com/weenachuangkud/FastCast2Parallel), branch `main`, pinned to the source commit recorded in the submodule.
+
+These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. The Wally package is still used for the ImGui dependency; Rojo maps both source repositories directly under `ReplicatedStorage`.
+
+After cloning, initialize the submodules:
+
+```powershell
+git submodule update --init --recursive
+```
+
+To update a dependency deliberately, enter its submodule, check out the intended branch/commit, and commit the changed submodule pointer in this repository.
 
 ## Architecture
 
-- `src/shared/FastCast2Wrapper.luau` owns one caster per Luau context. Client and server contexts have independent wrapper state.
-- StarterPack tools use the shared wrapper instead of creating their own caster.
-- `ConfigUI` opens Dear ImGui while equipped and shuts its rendering context down when unequipped.
-- `BasicFire` fires a projectile from the local character's head toward the mouse target.
-- `Benchmark` and `UnitTest` are tool entry points for the next implementation phase.
+- `src/shared/FastCast2Wrapper.luau` is the bridge for one caster per Luau context.
+- The Serial and Parallel modules are separate implementations with separate shared runtimes.
+- Both use the refactor API: initialize the library runtime with `FastCast2.Init(...)`, then create a caster with `FastCast2.new()`.
+- Client and server contexts have independent wrapper state.
+- StarterPack tools share the wrapper instead of creating their own casters.
 
-The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. Calls to fire while it is not ready are rejected. Changing Serial/Parallel mode rebuilds the wrapper's caster; existing casts are not migrated.
+The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated.
+
+## Tools
+
+- **ConfigUI** — equip to open Dear ImGui; unequip to stop rendering and shut down the context. It edits wrapper behavior and mode settings.
+- **BasicFire** — fire a projectile from the local character's head toward the mouse target.
+- **Benchmark** — currently a tool entry point; workload and result collection still need implementation.
+- **UnitTest** — currently a tool entry point; porting the serial and parallel automated suites is still future work.
 
 ## Toolchain
-
-This project pins development tools in `rokit.toml`:
-
-- **Rokit** manages project tool versions.
-- **Rojo** syncs source files with Roblox Studio and builds the place.
-- **Wally** installs FastCast2 and the ImGui debug UI.
 
 Install Rokit, then run from the repository root:
 
 ```powershell
 rokit install
+git submodule update --init --recursive
 wally install
 rojo plugin install
 rojo serve
 ```
 
-Open the place in Roblox Studio and connect the Rojo plugin.
+Open Roblox Studio and connect the Rojo plugin.
 
 To build a place file:
 
@@ -37,26 +56,9 @@ To build a place file:
 rojo build default.project.json -o RbxFastCast2Place.rbxlx
 ```
 
-## Configuration UI
+## Notes
 
-Equip **ConfigUI** to open the ImGui settings panel. It exposes Serial/Parallel switching, velocity, cast type, and common `FastCastBehavior` settings. Unequipping disconnects the render loop and shuts down the ImGui context.
-
-Settings are shared within that client context and affect future casts. The server has its own wrapper and behavior; client UI edits do not replicate configuration to the server.
-
-## Benchmarking notes
-
-The benchmark tool is currently an entry point only; a real workload runner and comparable client/server result capture are still to be implemented.
-
-For valid performance comparisons:
-
-- Keep the workload, projectile count, cast configuration, and duration identical between Serial and Parallel.
-- Record whether the ConfigUI is open.
-- Run a second measurement with UI rendering disabled when you need to isolate FastCast2 overhead.
-- Do not treat a client-only result as a server benchmark.
-
-## Current limitations
-
-- UnitTest currently reports the wrapper state; existing FastCast2 automated tests have not yet been ported.
-- BasicFire is a local testing tool, not a server-authoritative weapon implementation.
-- Mode changes destroy the old caster and initialize a new one. Active casts are not transferred between modes.
-- This scaffold has not been executed in Roblox Studio in this change.
+- Client UI settings do not automatically replicate to the server.
+- Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
+- Benchmark runs must use identical workload/configuration across Serial and Parallel. Record whether ImGui is enabled and use UI-disabled runs to isolate FastCast overhead.
+- This change has not been run in Roblox Studio yet.
