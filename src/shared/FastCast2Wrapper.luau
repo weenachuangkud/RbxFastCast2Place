@@ -55,6 +55,14 @@ local Wrapper = {
 	},
 }
 
+local SupportedEvents = {
+	CastFire = true,
+	LengthChanged = true,
+	Hit = true,
+	Pierced = true,
+	CastTerminating = true,
+}
+
 local function CreateCaster(self)
 	local caster
 	local mode: CasterMode = self.Settings.Mode
@@ -191,7 +199,7 @@ end
 
 function Wrapper:SetEvent(eventName: string, callback)
 	AssertNotInitializing(self)
-	assert(self.Events[eventName] ~= nil or eventName == "Hit", "Unsupported FastCast event: " .. eventName)
+	assert(SupportedEvents[eventName], "Unsupported FastCast event: " .. eventName)
 	assert(callback == nil or type(callback) == "function", "Event callback must be a function or nil.")
 
 	self.Events[eventName] = callback
