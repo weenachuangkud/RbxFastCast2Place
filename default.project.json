@@ -6,6 +6,12 @@
       "Packages": {
         "$path": "Packages"
       },
+      "FastCast2Serial": {
+        "$path": "vendor/FastCast2Serial/src"
+      },
+      "FastCast2Parallel": {
+        "$path": "vendor/FastCast2Parallel/src"
+      },
       "Shared": {
         "$path": "src/shared"
       }
