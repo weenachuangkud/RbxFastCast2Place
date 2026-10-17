@@ -112,6 +112,9 @@ Network.FireRequest.listen(function(payload, player)
 		return
 	end
 
+	if payload.context ~= 2 and payload.context ~= 3 then
+		return
+	end
 	local origin = payload.origin
 	local direction = payload.direction
 	if typeof(origin) ~= "Vector3" or typeof(direction) ~= "Vector3" then
@@ -142,11 +145,18 @@ Network.FireRequest.listen(function(payload, player)
 		return
 	end
 
-	Network.FireBroadcast.sendToAllExcept({
+	local broadcast = {
 		origin = castOrigin,
 		direction = castDirection,
 		velocityMode = if typeof(velocity) == "Vector3" then 2 elseif typeof(velocity) == "number" then 1 else 0,
 		velocity = if typeof(velocity) == "Vector3" then velocity elseif typeof(velocity) == "number" then Vector3.new(velocity, 0, 0) else Vector3.zero,
-		context = 2,
-	}, player)
+		context = payload.context,
+	}
+	if payload.context == 3 then
+		-- Both predicts locally, so don't render a second cosmetic on the shooter.
+		Network.FireBroadcast.sendToAllExcept(broadcast, player)
+	else
+		-- Server-only requests need the server result rendered on the requesting client too.
+		Network.FireBroadcast.sendToAll(broadcast)
+	end
 end)
