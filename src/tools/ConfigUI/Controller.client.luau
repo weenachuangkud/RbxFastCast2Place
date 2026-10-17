@@ -232,6 +232,7 @@ local function RenderConfig()
 		end
 	end
 
+	Wrapper:SyncConfiguration()
 	ImGui.End()
 	ImGui.Render()
 	ImGui_ImplRoblox.RenderDrawData(ImGui.GetDrawData())
