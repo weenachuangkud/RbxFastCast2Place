@@ -42,6 +42,74 @@ local function RequestMode(mode: "Serial" | "Parallel")
 	end)
 end
 
+local function RenderCosmeticSettings()
+	ImGui.Separator()
+	ImGui.Text("Cosmetic projectile")
+
+	local cosmeticMode = Wrapper.Settings.CosmeticMode
+	if ImGui.Button("Instanced") then
+		local ok, err = pcall(function()
+			Wrapper:SetCosmeticMode("Instanced")
+		end)
+		if not ok then
+			warn("[FastCast2 ConfigUI] Could not enable instanced cosmetics:", err)
+		end
+	end
+	ImGui.SameLine()
+	if ImGui.Button("Instanceless") then
+		local ok, err = pcall(function()
+			Wrapper:SetCosmeticMode("Instanceless")
+		end)
+		if not ok then
+			warn("[FastCast2 ConfigUI] Could not disable cosmetic instances:", err)
+		end
+	end
+	ImGui.Text("Mode: " .. cosmeticMode)
+
+	if cosmeticMode == "Instanced" then
+		local folder = ReplicatedStorage:FindFirstChild("Projectiles")
+		ImGui.Text("Projectiles in ReplicatedStorage.Projectiles:")
+
+		if folder then
+			local foundProjectile = false
+			for _, item in folder:GetChildren() do
+				if item:IsA("BasePart") then
+					foundProjectile = true
+					local label = item.Name
+					if Wrapper.Settings.CosmeticProjectileName == item.Name then
+						label ..= " (selected)"
+					end
+					if ImGui.Button(label) then
+						local ok, err = pcall(function()
+							Wrapper:SetCosmeticProjectile(item.Name)
+						end)
+						if not ok then
+							warn("[FastCast2 ConfigUI] Could not select projectile:", err)
+						end
+					end
+				end
+			end
+
+			if not foundProjectile then
+				ImGui.Text("No BasePart projectiles found; using the default 1x1x1 part.")
+			end
+		else
+			ImGui.Text("Projectiles folder is missing; using the default 1x1x1 part.")
+		end
+
+		if ImGui.Button("Use default 1x1x1 part") then
+			local ok, err = pcall(function()
+				Wrapper:SetCosmeticProjectile(nil)
+			end)
+			if not ok then
+				warn("[FastCast2 ConfigUI] Could not select default projectile:", err)
+			end
+		end
+
+		ImGui.Text("Selected: " .. (Wrapper.Settings.CosmeticProjectileName or "Default part"))
+	end
+end
+
 local function RenderConfig()
 	ImGui_ImplRoblox.NewFrame()
 	ImGui.NewFrame()
@@ -159,6 +227,8 @@ local function RenderConfig()
 
 			local _, autoIgnore = ImGui.Checkbox("Auto-ignore cosmetic container", behavior.AutoIgnoreContainer)
 			behavior.AutoIgnoreContainer = autoIgnore
+
+			RenderCosmeticSettings()
 		end
 	end
 
