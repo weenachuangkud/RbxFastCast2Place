@@ -27,6 +27,12 @@ local function encodeConfiguration()
 end
 
 local function applyConfiguration(payload)
+	-- Change mode first because SetMode creates a fresh behavior.
+	local mode = if payload.mode == 2 then "Parallel" else "Serial"
+	if Wrapper.Settings.Mode ~= mode then
+		Wrapper:SetMode(mode)
+	end
+
 	-- Clamp all client-controlled numeric settings before accepting them.
 	Wrapper.Settings.Velocity = math.clamp(payload.velocity, 1, 10000)
 	Wrapper.Settings.MovementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
@@ -45,10 +51,6 @@ local function applyConfiguration(payload)
 	Wrapper.Behavior.VisualizeCasts = payload.visualizeCasts == true
 	Wrapper.Behavior.AutoIgnoreContainer = payload.autoIgnoreContainer == true
 
-	local mode = if payload.mode == 2 then "Parallel" else "Serial"
-	if Wrapper.Settings.Mode ~= mode then
-		Wrapper:SetMode(mode)
-	end
 end
 
 local function getVelocity(payload)
@@ -60,14 +62,16 @@ local function getVelocity(payload)
 	return Wrapper.Settings.Velocity
 end
 
-task.spawn(function()
+do
 	local ok, err = pcall(function()
 		Wrapper:Initialize()
+		-- Server simulates gameplay; cosmetic instances are rendered by clients.
+		Wrapper:SetCosmeticMode("Instanceless")
 	end)
 	if not ok then
 		warn("[FastCast2Server] FastCast2 initialization failed:", err)
 	end
-end)
+end
 
 Network.RequestConfiguration.listen(function(_, player)
 	if player then
