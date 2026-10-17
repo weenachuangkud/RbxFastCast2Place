@@ -31,10 +31,20 @@ The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and
 
 ## Tools
 
-- **ConfigUI** — equip to open Dear ImGui; unequip to stop rendering and shut down the context. It edits wrapper behavior and mode settings.
+- **ConfigUI** — equip to open Dear ImGui; unequip to stop rendering and shut down the context. It edits wrapper behavior, caster mode, and projectile cosmetics.
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
 - **Benchmark** — currently a tool entry point; workload and result collection still need implementation.
 - **UnitTest** — currently a tool entry point; porting the serial and parallel automated suites is still future work.
+
+## Projectile cosmetics
+
+Place projectile `.rbxmx` assets in the repository's `projectiles/` folder. Rojo syncs that folder to `ReplicatedStorage.Projectiles`. Each selectable projectile must be a `BasePart` directly inside that folder.
+
+In ConfigUI:
+- **Instanced** creates a cloned cosmetic part for each cast.
+- Select a projectile in `Projectiles` to use it as the cosmetic template.
+- If no projectile is selected or the folder has no valid projectile, Instanced mode uses a default `1×1×1` part.
+- **Instanceless** sets `CosmeticBulletTemplate = nil`, so casts are simulated without a cosmetic projectile instance.
 
 ## Toolchain
 
