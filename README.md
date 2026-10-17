@@ -9,7 +9,7 @@ This project uses two source repositories directly as pinned Git submodules:
 - `vendor/FastCast2Serial` — [FastCast2](https://github.com/weenachuangkud/FastCast2), branch `weenachuangkud-refactor`, pinned to the source commit recorded in the submodule.
 - `vendor/FastCast2Parallel` — [FastCast2Parallel](https://github.com/weenachuangkud/FastCast2Parallel), branch `main`, pinned to the source commit recorded in the submodule.
 
-These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. The Wally package is still used for the ImGui dependency; Rojo maps both source repositories directly under `ReplicatedStorage`.
+These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. Wally provides ImGui and ByteNet; Rojo maps both FastCast2 source repositories directly under `ReplicatedStorage`.
 
 After cloning, initialize the submodules:
 
@@ -24,7 +24,7 @@ To update a dependency deliberately, enter its submodule, check out the intended
 - `src/shared/FastCast2Wrapper.luau` is the bridge for one caster per Luau context.
 - The Serial and Parallel modules are separate implementations with separate shared runtimes.
 - Both use the refactor API: initialize the library runtime with `FastCast2.Init(...)`, then create a caster with `FastCast2.new()`.
-- Client and server contexts have independent wrapper state.
+- Client and server contexts have independent wrapper state. ByteNet synchronizes shared cast settings and relays fire requests to the server.
 - StarterPack tools share the wrapper instead of creating their own casters.
 
 The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated.
@@ -68,7 +68,7 @@ rojo build default.project.json -o RbxFastCast2Place.rbxlx
 
 ## Notes
 
-- Client UI settings do not automatically replicate to the server.
+- ConfigUI changes are sent through ByteNet when values change. The server clamps accepted values and remains responsible for authoritative hit detection; client firing is prediction only.
 - Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
 - Benchmark runs must use identical workload/configuration across Serial and Parallel. Record whether ImGui is enabled and use UI-disabled runs to isolate FastCast overhead.
 - This change has not been run in Roblox Studio yet.
