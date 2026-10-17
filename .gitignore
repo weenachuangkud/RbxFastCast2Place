@@ -1,0 +1,13 @@
+# Wally-installed packages
+Packages/
+
+# Rojo build output
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+
+# Local tool/editor files
+.vscode/
+.idea/
+*.log
