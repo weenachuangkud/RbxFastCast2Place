@@ -21,6 +21,9 @@
           "$path": "src/client"
         }
       }
+    },
+    "StarterPack": {
+      "$path": "src/tools"
     }
   }
 }
