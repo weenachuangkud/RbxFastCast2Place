@@ -16,6 +16,12 @@ local WindowOpen = true
 local FrameConnection: RBXScriptConnection? = nil
 local ModeSwitching = false
 
+local HIGH_FIDELITY_BEHAVIORS = {
+	{ Name = "Default", Value = 1 },
+	{ Name = "Automatic", Value = 2 },
+	{ Name = "Always", Value = 3 },
+}
+
 local function RequestMode(mode: "Serial" | "Parallel")
 	if ModeSwitching or Wrapper.State == "Initializing" then
 		return
@@ -116,6 +122,24 @@ local function RenderConfig()
 			local behavior = Wrapper.Behavior
 
 			behavior.MaxDistance = ImGui.SliderFloat("Max distance", behavior.MaxDistance, 1, 10000)
+
+			ImGui.Text("HighFidelityBehavior")
+			local currentBehaviorName = "Unknown"
+			for _, option in HIGH_FIDELITY_BEHAVIORS do
+				if behavior.HighFidelityBehavior == option.Value then
+					currentBehaviorName = option.Name
+				end
+			end
+			ImGui.Text("Current: " .. currentBehaviorName)
+			for _, option in HIGH_FIDELITY_BEHAVIORS do
+				if ImGui.Button(option.Name) then
+					behavior.HighFidelityBehavior = option.Value
+				end
+				if option ~= HIGH_FIDELITY_BEHAVIORS[#HIGH_FIDELITY_BEHAVIORS] then
+					ImGui.SameLine()
+				end
+			end
+
 			behavior.HighFidelitySegmentSize = ImGui.SliderFloat(
 				"High-fidelity segment size",
 				behavior.HighFidelitySegmentSize,
