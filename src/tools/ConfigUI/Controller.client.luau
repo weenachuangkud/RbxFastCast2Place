@@ -120,6 +120,21 @@ local function RenderConfig()
 	if visible then
 		ImGui.Text("Wrapper state: " .. Wrapper.State)
 		ImGui.Text("Settings apply to future casts.")
+		ImGui.Separator()
+		ImGui.Text("Fire context")
+		for _, context in { "Client", "Server", "Both" } do
+			if ImGui.Button(context .. (Wrapper.Settings.Context == context and " (selected)" or "")) then
+				Wrapper:SetContext(context)
+			end
+			if context ~= "Both" then
+				ImGui.SameLine()
+			end
+		end
+		ImGui.Text(if Wrapper.Settings.Context == "Client"
+			then "Client: simulate locally only."
+			elseif Wrapper.Settings.Context == "Server"
+			then "Server: request server simulation; render when the server broadcasts."
+			else "Both: predict locally and request authoritative server simulation.")
 
 		if Wrapper.State == "Initializing" then
 			ImGui.Text("Please wait for caster initialization to finish.")
