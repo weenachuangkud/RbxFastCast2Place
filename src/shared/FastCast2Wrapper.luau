@@ -4,9 +4,11 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
+local RunService = game:GetService("RunService")
 
 local SerialFastCast = require(ReplicatedStorage:WaitForChild("FastCast2Serial"))
 local ParallelFastCast = require(ReplicatedStorage:WaitForChild("FastCast2Parallel"))
+local Network = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Network"))
 
 type CasterMode = "Serial" | "Parallel"
 type CastType = "Raycast" | "Blockcast" | "Spherecast"
@@ -282,18 +284,61 @@ function Wrapper:SetFastCastEventsModule(moduleScript: ModuleScript?)
 	end
 end
 
-function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
+local function EncodeConfiguration(self)
+	local settings = self.Settings
+	local behavior = self.Behavior
+	return {
+		mode = if settings.Mode == "Parallel" then 2 else 1,
+		movementMode = if settings.MovementMode == "Motor6D" then 2 else 1,
+		workerCount = math.clamp(math.floor(settings.WorkerCount), 1, 32),
+		castType = if settings.CastType == "Blockcast" then 2 elseif settings.CastType == "Spherecast" then 3 else 1,
+		velocity = settings.Velocity,
+		blockcastSize = settings.BlockcastSize,
+		spherecastRadius = settings.SpherecastRadius,
+		maxDistance = behavior.MaxDistance,
+		highFidelityBehavior = behavior.HighFidelityBehavior,
+		highFidelitySegmentSize = behavior.HighFidelitySegmentSize,
+		acceleration = behavior.Acceleration,
+		visualizeCasts = behavior.VisualizeCasts,
+		autoIgnoreContainer = behavior.AutoIgnoreContainer,
+	}
+end
+
+function Wrapper:SyncConfiguration()
+	if RunService:IsClient() then
+		Network.Configuration.send(EncodeConfiguration(self))
+	end
+end
+
+local function ApplyConfiguration(self, payload)
+	self.Settings.Velocity = payload.velocity
+	self.Settings.MovementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
+	self.Settings.WorkerCount = payload.workerCount
+	self.Settings.CastType = if payload.castType == 2 then "Blockcast" elseif payload.castType == 3 then "Spherecast" else "Raycast"
+	self.Settings.BlockcastSize = payload.blockcastSize
+	self.Settings.SpherecastRadius = payload.spherecastRadius
+	self.Behavior.MaxDistance = payload.maxDistance
+	self.Behavior.HighFidelityBehavior = payload.highFidelityBehavior
+	self.Behavior.HighFidelitySegmentSize = payload.highFidelitySegmentSize
+	self.Behavior.Acceleration = payload.acceleration
+	self.Behavior.VisualizeCasts = payload.visualizeCasts
+	self.Behavior.AutoIgnoreContainer = payload.autoIgnoreContainer
+	local mode = if payload.mode == 2 then "Parallel" else "Serial"
+	if self.Settings.Mode ~= mode then
+		self:SetMode(mode)
+	end
+end
+
+function Wrapper:FireLocal(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
 	if not self:IsReady() then
 		error("FastCast2Wrapper is not ready. Current state: " .. self.State, 2)
 	end
 	assert(typeof(origin) == "Vector3", "Origin must be a Vector3.")
 	assert(typeof(direction) == "Vector3" and direction.Magnitude > 0, "Direction must be a non-zero Vector3.")
-
 	local caster = self.Caster
 	local castVelocity = velocity or self.Settings.Velocity
 	local castBehavior = behavior or self.Behavior
 	local unitDirection = direction.Unit
-
 	if self.Settings.CastType == "Raycast" then
 		return caster:RaycastFire(origin, unitDirection, castVelocity, castBehavior)
 	elseif self.Settings.CastType == "Blockcast" then
@@ -301,6 +346,50 @@ function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | V
 	else
 		return caster:SpherecastFire(origin, self.Settings.SpherecastRadius, unitDirection, castVelocity, castBehavior)
 	end
+end
+
+function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
+	if RunService:IsClient() then
+		self:SyncConfiguration()
+		local velocityMode = if typeof(velocity) == "Vector3" then 2 elseif typeof(velocity) == "number" then 1 else 0
+		local velocityVector = if typeof(velocity) == "Vector3" then velocity elseif typeof(velocity) == "number" then Vector3.new(velocity, 0, 0) else Vector3.zero
+		Network.FireRequest.send({
+			origin = origin,
+			direction = direction.Unit,
+			velocityMode = velocityMode,
+			velocity = velocityVector,
+		})
+	end
+	return self:FireLocal(origin, direction, velocity, behavior)
+end
+
+if RunService:IsClient() then
+	Network.Configuration.listen(function(payload)
+		local ok, err = pcall(function()
+			ApplyConfiguration(Wrapper, payload)
+		end)
+		if not ok then
+			warn("[FastCast2Wrapper] Could not apply server configuration:", err)
+		end
+	end)
+	Network.FireBroadcast.listen(function(payload)
+		if not Wrapper:IsReady() then
+			local ok, err = pcall(function()
+				Wrapper:Initialize()
+			end)
+			if not ok then
+				warn("[FastCast2Wrapper] Could not initialize for remote cast:", err)
+				return
+			end
+		end
+		local ok, err = pcall(function()
+			Wrapper:FireLocal(payload.origin, payload.direction, if payload.velocityMode == 2 then payload.velocity elseif payload.velocityMode == 1 then payload.velocity.Magnitude else nil)
+		end)
+		if not ok then
+			warn("[FastCast2Wrapper] Could not render remote cast:", err)
+		end
+	end)
+	Network.RequestConfiguration.send()
 end
 
 function Wrapper:Destroy()
