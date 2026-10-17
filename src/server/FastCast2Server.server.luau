@@ -53,6 +53,8 @@ local function applyConfiguration(payload)
 
 end
 
+local LastFireAt: { [Player]: number } = {}
+
 local function getVelocity(payload)
 	if payload.velocityMode == 2 then
 		return payload.velocity
@@ -98,6 +100,12 @@ Network.FireRequest.listen(function(payload, player)
 		return
 	end
 
+	local now = os.clock()
+	if now - (LastFireAt[player] or 0) < 0.025 then
+		return
+	end
+	LastFireAt[player] = now
+
 	local character = player.Character
 	local head = character and character:FindFirstChild("Head")
 	if not head or not head:IsA("BasePart") then
@@ -119,6 +127,12 @@ Network.FireRequest.listen(function(payload, player)
 
 	local castOrigin = head.Position
 	local castDirection = direction.Unit
+	local raycastParams = RaycastParams.new()
+	raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+	raycastParams.FilterDescendantsInstances = { character }
+	raycastParams.IgnoreWater = true
+	Wrapper.Behavior.RaycastParams = raycastParams
+
 	local ok, err = pcall(function()
 		Wrapper:Fire(castOrigin, castDirection, getVelocity(payload))
 	end)
