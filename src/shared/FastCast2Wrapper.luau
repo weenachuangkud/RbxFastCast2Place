@@ -284,6 +284,8 @@ function Wrapper:SetFastCastEventsModule(moduleScript: ModuleScript?)
 	end
 end
 
+local LastConfigurationKey: string? = nil
+
 local function EncodeConfiguration(self)
 	local settings = self.Settings
 	local behavior = self.Behavior
@@ -305,12 +307,27 @@ local function EncodeConfiguration(self)
 end
 
 function Wrapper:SyncConfiguration()
-	if RunService:IsClient() then
-		Network.Configuration.send(EncodeConfiguration(self))
+	if not RunService:IsClient() then
+		return
 	end
+	local configuration = EncodeConfiguration(self)
+	local key = table.concat({
+		tostring(configuration.mode), tostring(configuration.movementMode),
+		tostring(configuration.workerCount), tostring(configuration.castType),
+		tostring(configuration.velocity), tostring(configuration.blockcastSize),
+		tostring(configuration.spherecastRadius), tostring(configuration.maxDistance),
+		tostring(configuration.highFidelityBehavior), tostring(configuration.highFidelitySegmentSize),
+		tostring(configuration.acceleration), tostring(configuration.visualizeCasts),
+		tostring(configuration.autoIgnoreContainer),
+	}, "|")
+	if key == LastConfigurationKey then return end
+	LastConfigurationKey = key
+	Network.Configuration.send(configuration)
 end
 
 local function ApplyConfiguration(self, payload)
+	local mode = if payload.mode == 2 then "Parallel" else "Serial"
+	if self.Settings.Mode ~= mode then self:SetMode(mode) end
 	self.Settings.Velocity = payload.velocity
 	self.Settings.MovementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
 	self.Settings.WorkerCount = payload.workerCount
@@ -323,10 +340,7 @@ local function ApplyConfiguration(self, payload)
 	self.Behavior.Acceleration = payload.acceleration
 	self.Behavior.VisualizeCasts = payload.visualizeCasts
 	self.Behavior.AutoIgnoreContainer = payload.autoIgnoreContainer
-	local mode = if payload.mode == 2 then "Parallel" else "Serial"
-	if self.Settings.Mode ~= mode then
-		self:SetMode(mode)
-	end
+	ApplyCosmeticSettings(self)
 end
 
 function Wrapper:FireLocal(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
