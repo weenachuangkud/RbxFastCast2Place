@@ -1,0 +1,10 @@
+[package]
+name = "weenachuangkud/rbx-fastcast2-place"
+description = "Testing, debugging, and benchmarking place for FastCast2"
+version = "0.1.0"
+registry = "https://github.com/UpliftGames/wally-index"
+realm = "shared"
+
+[dependencies]
+FastCast2 = "weenachuangkud/fastcast2@0.1.4"
+ImGui = "4dbug/imgui-luau@0.3.0"
