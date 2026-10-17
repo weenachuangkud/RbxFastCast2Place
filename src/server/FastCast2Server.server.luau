@@ -133,8 +133,9 @@ Network.FireRequest.listen(function(payload, player)
 	raycastParams.IgnoreWater = true
 	Wrapper.Behavior.RaycastParams = raycastParams
 
+	local velocity = getVelocity(payload)
 	local ok, err = pcall(function()
-		Wrapper:Fire(castOrigin, castDirection, getVelocity(payload))
+		Wrapper:FireLocal(castOrigin, castDirection, velocity)
 	end)
 	if not ok then
 		warn("[FastCast2Server] Fire failed for", player.Name, err)
@@ -144,7 +145,8 @@ Network.FireRequest.listen(function(payload, player)
 	Network.FireBroadcast.sendToAllExcept({
 		origin = castOrigin,
 		direction = castDirection,
-		velocityMode = payload.velocityMode,
-		velocity = payload.velocity,
+		velocityMode = if typeof(velocity) == "Vector3" then 2 elseif typeof(velocity) == "number" then 1 else 0,
+		velocity = if typeof(velocity) == "Vector3" then velocity elseif typeof(velocity) == "number" then Vector3.new(velocity, 0, 0) else Vector3.zero,
+		context = 2,
 	}, player)
 end)
