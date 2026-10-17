@@ -15,9 +15,11 @@ type CastType = "Raycast" | "Blockcast" | "Spherecast"
 type MovementMode = "BulkMoveTo" | "Motor6D"
 type WrapperState = "Uninitialized" | "Initializing" | "Ready" | "Failed" | "Destroyed"
 type CosmeticMode = "Instanced" | "Instanceless"
+type FireContext = "Client" | "Server" | "Both"
 
 type WrapperSettings = {
 	Mode: CasterMode,
+	Context: FireContext,
 	MovementMode: MovementMode,
 	WorkerCount: number,
 	Velocity: number,
@@ -39,6 +41,7 @@ local Wrapper = {
 
 	Settings = {
 		Mode = "Serial",
+		Context = "Both",
 		MovementMode = "BulkMoveTo",
 		WorkerCount = 4,
 		Velocity = 500,
@@ -362,19 +365,43 @@ function Wrapper:FireLocal(origin: Vector3, direction: Vector3, velocity: (numbe
 	end
 end
 
+function Wrapper:SetContext(context: FireContext)
+	assert(context == "Client" or context == "Server" or context == "Both", "Context must be Client, Server, or Both.")
+	self.Settings.Context = context
+end
+
+local function EncodeFire(origin, direction, velocity, context: FireContext)
+	local velocityMode = if typeof(velocity) == "Vector3" then 2 elseif typeof(velocity) == "number" then 1 else 0
+	local velocityVector = if typeof(velocity) == "Vector3" then velocity elseif typeof(velocity) == "number" then Vector3.new(velocity, 0, 0) else Vector3.zero
+	return {
+		origin = origin,
+		direction = direction.Unit,
+		velocityMode = velocityMode,
+		velocity = velocityVector,
+		context = if context == "Client" then 1 elseif context == "Server" then 2 else 3,
+	}
+end
+
 function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
+	assert(typeof(origin) == "Vector3", "Origin must be a Vector3.")
+	assert(typeof(direction) == "Vector3" and direction.Magnitude > 0, "Direction must be a non-zero Vector3.")
+	local context = self.Settings.Context
 	if RunService:IsClient() then
-		self:SyncConfiguration()
-		local velocityMode = if typeof(velocity) == "Vector3" then 2 elseif typeof(velocity) == "number" then 1 else 0
-		local velocityVector = if typeof(velocity) == "Vector3" then velocity elseif typeof(velocity) == "number" then Vector3.new(velocity, 0, 0) else Vector3.zero
-		Network.FireRequest.send({
-			origin = origin,
-			direction = direction.Unit,
-			velocityMode = velocityMode,
-			velocity = velocityVector,
-		})
+		if context ~= "Client" then
+			self:SyncConfiguration()
+			Network.FireRequest.send(EncodeFire(origin, direction, velocity, context))
+		end
+		if context ~= "Server" then
+			return self:FireLocal(origin, direction, velocity, behavior)
+		end
+		return nil
 	end
-	return self:FireLocal(origin, direction, velocity, behavior)
+
+	-- Server calls always simulate authoritatively. Also tell clients to render
+	-- the cast, since server-side cosmetic instances are disabled.
+	local result = self:FireLocal(origin, direction, velocity, behavior)
+	Network.FireBroadcast.sendToAll(EncodeFire(origin, direction, velocity, "Server"))
+	return result
 end
 
 if RunService:IsClient() then
@@ -397,7 +424,7 @@ if RunService:IsClient() then
 			end
 		end
 		local ok, err = pcall(function()
-			Wrapper:FireLocal(payload.origin, payload.direction, if payload.velocityMode == 2 then payload.velocity elseif payload.velocityMode == 1 then payload.velocity.Magnitude else nil)
+			Wrapper:FireLocal(payload.origin, payload.direction, if payload.velocityMode == 2 then payload.velocity elseif payload.velocityMode == 1 then payload.velocity.X else nil)
 		end)
 		if not ok then
 			warn("[FastCast2Wrapper] Could not render remote cast:", err)
