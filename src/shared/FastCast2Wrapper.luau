@@ -9,6 +9,13 @@ local SerialFastCast = require(ReplicatedStorage:WaitForChild("FastCast2Serial")
 local ParallelFastCast = require(ReplicatedStorage:WaitForChild("FastCast2Parallel"))
 local Network = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Network"))
 
+local defaultBehavior = SerialFastCast.newBehavior()
+defaultBehavior.Acceleration = Vector3.new(
+	defaultBehavior.Acceleration.X,
+	0,
+	defaultBehavior.Acceleration.Z
+)
+
 type CasterMode = "Serial" | "Parallel"
 type CastType = "Raycast" | "Blockcast" | "Spherecast"
 type MovementMode = "BulkMoveTo" | "Motor6D"
@@ -43,7 +50,7 @@ local Wrapper = {
 		Context = "Both",
 		MovementMode = "BulkMoveTo",
 		WorkerCount = 4,
-		Velocity = 500,
+		Velocity = 50,
 		CastType = "Raycast",
 		BlockcastSize = Vector3.one,
 		SpherecastRadius = 1,
@@ -53,7 +60,7 @@ local Wrapper = {
 		ParallelConfig = {},
 	} :: WrapperSettings,
 
-	Behavior = SerialFastCast.newBehavior(),
+	Behavior = defaultBehavior,
 
 	Events = {
 		CastFire = nil,

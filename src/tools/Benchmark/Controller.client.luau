@@ -39,7 +39,7 @@ local function runBenchmark()
 		local ok, resultOrError = pcall(function()
 			local BenchmarkRunner = require(script.Parent:WaitForChild("BenchmarkRunner"))
 			return BenchmarkRunner.run({
-				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, 5000),
+				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				workerCount = Wrapper.Settings.WorkerCount,
 				castType = Wrapper.Settings.CastType,

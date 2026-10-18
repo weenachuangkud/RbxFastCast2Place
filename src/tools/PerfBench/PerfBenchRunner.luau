@@ -223,7 +223,8 @@ function PerfBench.run(options: {
 }): { any }
 	-- Keep the perfbench workload separate from benchmarks/: Raycast only,
 	-- with independently configurable simulation mode, instancing, and movement.
-	local projectileCount = math.clamp(math.floor(options.projectileCount), 1, 10000)
+	local maxProjectileCount = math.max(1, math.floor(options.maxProjectileCount))
+	local projectileCount = math.clamp(math.floor(options.projectileCount), 1, maxProjectileCount)
 	local sampleDuration = math.clamp(options.sampleDuration, 1, 10)
 	local movementMode = "BulkMoveTo"
 	local simulationModes = {}

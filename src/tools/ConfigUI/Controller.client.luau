@@ -118,7 +118,10 @@ local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
 		Iris.SeparatorText({ "FastCast2 Benchmark" })
-		local projectileCount = Iris.SliderNum({ "Projectile count", 1, 1, 5000 }, { number = States.ProjectileCount })
+		local projectileCount = Iris.SliderNum(
+			{ "Projectile count", 8000, 1, BenchmarkSettings.MaxProjectileCount },
+			{ number = States.ProjectileCount }
+		)
 		if projectileCount.numberChanged() then
 			BenchmarkSettings.ProjectileCount = math.floor(States.ProjectileCount.value)
 		end
@@ -167,7 +170,7 @@ local function RenderConfig()
 
 		Iris.SeparatorText({ "FastCast2 PerfBench" })
 		local perfProjectileCount = Iris.SliderNum(
-			{ "PerfBench projectile count", 6000, 1, 10000 },
+			{ "PerfBench projectile count", 8000, 1, PerfBenchSettings.MaxProjectileCount },
 			{ number = States.PerfProjectileCount }
 		)
 		if perfProjectileCount.numberChanged() then
@@ -274,7 +277,7 @@ local function RenderConfig()
 			Iris.Text({ "The wrapper has been destroyed." })
 		else
 			Iris.SeparatorText({ "Fire settings" })
-			local velocity = Iris.SliderNum({ "Velocity", 1, 1, 5000 }, { number = States.Velocity })
+			local velocity = Iris.SliderNum({ "Velocity", 50, 1, 5000 }, { number = States.Velocity })
 			if velocity.numberChanged() then
 				Wrapper.Settings.Velocity = States.Velocity.value
 			end
@@ -326,7 +329,7 @@ local function RenderConfig()
 				behavior.HighFidelitySegmentSize = States.HighFidelitySegmentSize.value
 			end
 
-			local accelerationY = Iris.SliderNum({ "Acceleration Y", 1, -500, 500 }, { number = States.AccelerationY })
+			local accelerationY = Iris.SliderNum({ "Acceleration Y", 0, -500, 500 }, { number = States.AccelerationY })
 			if accelerationY.numberChanged() then
 				behavior.Acceleration = Vector3.new(
 					behavior.Acceleration.X,

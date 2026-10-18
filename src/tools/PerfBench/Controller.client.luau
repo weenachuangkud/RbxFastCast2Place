@@ -32,7 +32,8 @@ local function runPerfBench()
 		local ok, resultsOrError = pcall(function()
 			local PerfBench = require(script.Parent:WaitForChild("PerfBenchRunner"))
 			return PerfBench.run({
-				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, 10000),
+				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
+				maxProjectileCount = Settings.MaxProjectileCount,
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				workerCount = Wrapper.Settings.WorkerCount,
 				instanced = Settings.Instanced,
