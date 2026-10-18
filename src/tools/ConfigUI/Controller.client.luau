@@ -131,22 +131,27 @@ end
 local function RenderLibraryConfig()
 	Iris.SeparatorText({ "FastCast2 module Config" })
 	Iris.Text({ "Edit the actual Config table used by each local library runtime." })
+	local function LoadConfigStates(target: "Serial" | "Parallel")
+		local config = if target == "Parallel" then ParallelConfig else SerialConfig
+		States.ConfigSimulationMode:set(config.SimulationMode)
+		States.ConfigVisualizeCasts:set(config.VisualizeCasts)
+		States.ConfigFixedFrequency:set(tostring(config.FixedSimulationFrequency))
+		States.ConfigCosmeticUpdateInterval:set(config.CosmeticUpdateInterval)
+		States.DebugCasting:set(config.DebugLogging.Casting)
+		States.DebugSegment:set(config.DebugLogging.Segment)
+		States.DebugHit:set(config.DebugLogging.Hit)
+		States.DebugPierced:set(config.DebugLogging.Pierced)
+		States.DebugCalculation:set(config.DebugLogging.Calculation)
+	end
+
 	for _, target in { "Serial", "Parallel" } do
-		if Iris.Button({ target .. " Config" }).clicked() then
+		if Iris.Button({ target .. " Config" }).clicked() and States.ConfigTarget.value ~= target then
 			States.ConfigTarget:set(target)
+			LoadConfigStates(target)
 		end
 	end
 
 	local config, simulation = GetConfigTarget()
-	States.ConfigSimulationMode:set(config.SimulationMode)
-	States.ConfigVisualizeCasts:set(config.VisualizeCasts)
-	States.ConfigFixedFrequency:set(tostring(config.FixedSimulationFrequency))
-	States.ConfigCosmeticUpdateInterval:set(config.CosmeticUpdateInterval)
-	States.DebugCasting:set(config.DebugLogging.Casting)
-	States.DebugSegment:set(config.DebugLogging.Segment)
-	States.DebugHit:set(config.DebugLogging.Hit)
-	States.DebugPierced:set(config.DebugLogging.Pierced)
-	States.DebugCalculation:set(config.DebugLogging.Calculation)
 
 	Iris.Text({ "Editing: " .. States.ConfigTarget.value })
 	Iris.Text({ "Simulation mode: " .. config.SimulationMode })
