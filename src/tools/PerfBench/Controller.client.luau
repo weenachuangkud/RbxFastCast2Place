@@ -36,6 +36,7 @@ local function runPerfBench()
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				mode = Wrapper.Settings.Mode,
 				workerCount = Wrapper.Settings.WorkerCount,
+				instanced = Settings.Instanced,
 				includeMovementEnabled = Settings.IncludeMovementEnabled,
 				includeMovementDisabled = Settings.IncludeMovementDisabled,
 			}
