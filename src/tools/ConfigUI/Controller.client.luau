@@ -146,9 +146,11 @@ local function RenderConfig()
 				Iris.Text({ string.format("%s / %s: %s", result.mode, result.castType, result.error) })
 			else
 				Iris.Text({ string.format(
-					"%s / %s | %d frames | avg %.2f FPS (%.2f ms) | min %.2f FPS | max %.2f FPS | P50/P95/P99 %.2f/%.2f/%.2f ms | create %.2f ms | cleanup %.2f ms",
+					"%s / %s | fired %d | remaining %d | %d frames | avg %.2f FPS (%.2f ms) | min %.2f FPS | max %.2f FPS | P50/P95/P99 %.2f/%.2f/%.2f ms | create %.2f ms | cleanup %.2f ms",
 					result.mode,
 					result.castType,
+					result.firedCasts or 0,
+					result.remainingCastsAtCleanup or 0,
 					result.frames,
 					result.averageFps,
 					result.averageFrameMs,
@@ -209,11 +211,13 @@ local function RenderConfig()
 				Iris.Text({ string.format("%s / %s: %s", result.mode or "PerfBench", result.simulationMode or "", result.error) })
 			else
 				Iris.Text({ string.format(
-					"%s / %s | instanced=%s | movement=%s | create %.2f ms | avg %.2f | p95 %.2f | p99 %.2f | cleanup %.2f",
+					"%s / %s | instanced=%s | movement=%s | fired %d | remaining %d | create %.2f ms | avg %.2f | p95 %.2f | p99 %.2f | cleanup %.2f",
 					result.mode,
 					result.simulationMode,
 					tostring(result.instanced),
 					tostring(result.movement),
+					result.firedCasts or 0,
+					result.remainingCastsAtCleanup or 0,
 					result.creationMs,
 					result.averageFrameMs,
 					result.p95FrameMs,
