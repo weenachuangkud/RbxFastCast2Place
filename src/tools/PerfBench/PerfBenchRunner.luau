@@ -6,66 +6,36 @@ local Libraries = {
 	Serial = {
 		library = require(ReplicatedStorage:WaitForChild("FastCast2Serial")),
 		config = require(ReplicatedStorage.FastCast2Serial:WaitForChild("Config")),
-		simulation = require(ReplicatedStorage.FastCast2Serial:WaitForChild("SerialSimulation")),
 	},
 	Parallel = {
 		library = require(ReplicatedStorage:WaitForChild("FastCast2Parallel")),
 		config = require(ReplicatedStorage.FastCast2Parallel:WaitForChild("Config")),
-		simulation = require(ReplicatedStorage.FastCast2Parallel:WaitForChild("ParallelSimulation")),
 	},
 }
 
 local PerfBench = {}
 
 local function summarizeFrames(frameTimes)
-	if #frameTimes == 0 then
-		return 0, 0, 0, 0
-	end
-
+	if #frameTimes == 0 then return 0, 0, 0, 0 end
 	local sorted = table.clone(frameTimes)
 	table.sort(sorted)
 	local total = 0
-	for _, value in frameTimes do
-		total += value
-	end
-
+	for _, value in frameTimes do total += value end
 	local function percentile(fraction)
 		return sorted[math.max(1, math.ceil(#sorted * fraction))]
 	end
-
 	return total / #frameTimes, percentile(0.50), percentile(0.95), percentile(0.99)
 end
 
-local function setSimulationMode(modeName: string, simulationMode: string)
-	local mode = Libraries[modeName]
-	mode.simulation.Stop()
-	mode.config.SimulationMode = simulationMode
-	mode.simulation.Start()
-end
-
-local function restoreMovement(library: any, movementMode: string)
-	local resetCaster = library.new()
-	resetCaster:SetMovementModeEnabled(true, movementMode)
-	resetCaster:Destroy()
-end
-
-local function runCase(
-	modeName: string,
-	simulationMode: string,
-	projectileCount: number,
-	sampleDuration: number,
-	instanced: boolean,
-	movement: boolean,
-	workerCount: number,
-	movementMode: string
-)
+local function runCase(modeName: string, projectileCount: number, sampleDuration: number,
+	instanced: boolean, movement: boolean, workerCount: number, movementMode: string)
 	local mode = Libraries[modeName]
 	local library = mode.library
+	local simulationMode = mode.config.SimulationMode
 	local caster = nil
 	local container = Instance.new("Folder")
 	container.Name = "FastCast2PerfBenchCosmetics"
 	container.Parent = Workspace
-
 	local template = Instance.new("Part")
 	template.Name = "FastCast2PerfBenchProjectile"
 	template.Size = Vector3.one
@@ -81,12 +51,7 @@ local function runCase(
 	local firedCount = 0
 	local heartbeatConnection = nil
 	local ok, result = xpcall(function()
-		if modeName == "Serial" then
-			library.Init(movementMode)
-		else
-			library.Init(workerCount, movementMode)
-		end
-
+		if modeName == "Serial" then library.Init(movementMode) else library.Init(workerCount, movementMode) end
 		local behavior = library.newBehavior()
 		behavior.MaxDistance = 1e9
 		behavior.Acceleration = Vector3.zero
@@ -96,7 +61,6 @@ local function runCase(
 		behavior.FastCastEventsConfig.UseCastTerminating = true
 		behavior.CosmeticBulletTemplate = if instanced then template else nil
 		behavior.CosmeticBulletContainer = if instanced then container else nil
-
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 		raycastParams.FilterDescendantsInstances = { container }
@@ -110,186 +74,109 @@ local function runCase(
 		end
 		caster.CastTerminating = function(cast)
 			local index = table.find(activeCasts, cast)
-			if index then
-				table.remove(activeCasts, index)
-			end
+			if index then table.remove(activeCasts, index) end
 			local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
-			if cosmetic and cosmetic.Parent then
-				cosmetic:Destroy()
-			end
+			if cosmetic and cosmetic.Parent then cosmetic:Destroy() end
 		end
 		caster:SetMovementModeEnabled(movement, movementMode)
 
 		local random = Random.new(2026)
 		local creationStarted = os.clock()
 		for _ = 1, projectileCount do
-			local origin = Vector3.new(
-				random:NextInteger(-100, 100),
-				random:NextInteger(0, 100),
-				random:NextInteger(-100, 100)
-			)
-			local direction = Vector3.new(
-				random:NextNumber(-1, 1),
-				random:NextNumber(-1, 1),
-				random:NextNumber(-1, 1)
-			)
+			local origin = Vector3.new(random:NextInteger(-100, 100), random:NextInteger(0, 100), random:NextInteger(-100, 100))
+			local direction = Vector3.new(random:NextNumber(-1, 1), random:NextNumber(-1, 1), random:NextNumber(-1, 1))
 			direction = if direction.Magnitude == 0 then Vector3.xAxis else direction.Unit
 			caster:RaycastFire(origin, direction, 6, behavior)
 		end
-		local creationMs = (os.clock() - creationStarted) * 1000
+		local creationElapsed = os.clock() - creationStarted
+		local creationMs = creationElapsed * 1000
+		local creationProjectilesPerSecond = if creationElapsed > 0 then projectileCount / creationElapsed else 0
 
-		task.wait()
+		task.wait() -- flush queued parallel fire requests before sampling
 		local frameTimes = {}
 		local measuring = true
-		heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
-			if measuring and deltaTime > 0 then
-				frameTimes[#frameTimes + 1] = deltaTime * 1000
-			end
+		heartbeatConnection = RunService.Heartbeat:Connect(function(dt)
+			if measuring and dt > 0 then table.insert(frameTimes, dt * 1000) end
 		end)
 		task.wait(sampleDuration)
 		measuring = false
 		heartbeatConnection:Disconnect()
 		heartbeatConnection = nil
-
 		local average, p50, p95, p99 = summarizeFrames(frameTimes)
-
 		return {
-			mode = modeName,
-			simulationMode = simulationMode,
-			projectiles = projectileCount,
-			firedCasts = firedCount,
-			instanced = instanced,
-			movement = movement,
-			creationMs = creationMs,
-			averageFrameMs = average,
-			p50FrameMs = p50,
-			p95FrameMs = p95,
-			p99FrameMs = p99,
+			mode = modeName, simulationMode = simulationMode, projectiles = projectileCount,
+			firedCasts = firedCount, instanced = instanced, movement = movement,
+			creationMs = creationMs, creationProjectilesPerSecond = creationProjectilesPerSecond,
+			averageFrameMs = average, p50FrameMs = p50, p95FrameMs = p95, p99FrameMs = p99,
 		}
-	end)
+	end, debug.traceback)
 
-	-- Always stop sampling and terminate casts before destroying their caster.
-	if heartbeatConnection then
-		heartbeatConnection:Disconnect()
-	end
+	if heartbeatConnection then heartbeatConnection:Disconnect() end
 	local cleanupStarted = os.clock()
+	local castsAtCleanupStart = #activeCasts
 	local castsToTerminate = table.clone(activeCasts)
 	for i = #castsToTerminate, 1, -1 do
 		local cast = castsToTerminate[i]
-		if cast then
-			pcall(function()
-				library:TerminateCast(cast)
-			end)
-		end
+		if cast then pcall(function() library:TerminateCast(cast) end) end
 	end
 	local cleanupDeadline = os.clock() + 5
-	while #activeCasts > 0 and os.clock() < cleanupDeadline do
-		task.wait()
-	end
-	if caster then
-		pcall(function()
-			caster:Destroy()
-		end)
-	end
-	pcall(restoreMovement, library, movementMode)
-	local cleanupMs = (os.clock() - cleanupStarted) * 1000
-	template:Destroy()
-	container:Destroy()
+	while #activeCasts > 0 and os.clock() < cleanupDeadline do task.wait() end
+	local cleanupElapsed = os.clock() - cleanupStarted
+	local cleanupMs = cleanupElapsed * 1000
+	local cleanupProjectilesPerSecond = if cleanupElapsed > 0 then castsAtCleanupStart / cleanupElapsed else 0
 
+	-- Restore movement after timing cleanup; do not let disabled movement leak.
+	if caster then
+		pcall(function() caster:SetMovementModeEnabled(true, movementMode) end)
+		pcall(function() caster:Destroy() end)
+	end
+	pcall(function() template:Destroy() end)
+	pcall(function() container:Destroy() end)
+
+	local remaining = #activeCasts
 	if ok then
 		result.cleanupMs = cleanupMs
-		result.remainingCastsAtCleanup = #activeCasts
+		result.cleanupCasts = castsAtCleanupStart
+		result.cleanupProjectilesPerSecond = cleanupProjectilesPerSecond
+		result.remainingCastsAtCleanup = remaining
+		if remaining > 0 then result.error = "Cleanup timed out; remaining casts would contaminate the next case." end
 		return result
 	end
 	return {
-		mode = modeName,
-		simulationMode = simulationMode,
-		projectiles = projectileCount,
-		instanced = instanced,
-		movement = movement,
-		error = tostring(result),
+		mode = modeName, simulationMode = simulationMode, projectiles = projectileCount,
+		instanced = instanced, movement = movement, cleanupMs = cleanupMs,
+		cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
+		remainingCastsAtCleanup = remaining, error = tostring(result),
 	}
 end
 
 function PerfBench.run(options: {
-	projectileCount: number,
-	sampleDuration: number,
-	mode: string,
-	workerCount: number,
-	instanced: boolean,
-	includePerFrame: boolean,
-	includeFixed: boolean,
-	includeMovementEnabled: boolean,
-	includeMovementDisabled: boolean,
+	projectileCount: number, maxProjectileCount: number?, sampleDuration: number,
+	mode: string, workerCount: number, instanced: boolean,
+	includeMovementEnabled: boolean, includeMovementDisabled: boolean,
 }): { any }
-	-- Keep the perfbench workload separate from benchmarks/: Raycast only,
-	-- with independently configurable simulation mode, instancing, and movement.
-	local maxProjectileCount = math.max(1, math.floor(options.maxProjectileCount))
-	local projectileCount = math.clamp(math.floor(options.projectileCount), 1, maxProjectileCount)
-	local sampleDuration = math.clamp(options.sampleDuration, 1, 10)
+	-- Server-only: use the actual selected module Config; never rewrite SimulationMode.
+	local maxCount = math.max(1, math.floor(options.maxProjectileCount or 100000))
+	local count = math.clamp(math.floor(options.projectileCount), 1, maxCount)
+	local duration = math.clamp(options.sampleDuration, 1, 10)
 	local movementMode = "BulkMoveTo"
-	local simulationModes = {}
 	local movements = {}
-	if options.includePerFrame then
-		table.insert(simulationModes, "PerFrame")
-	end
-	if options.includeFixed then
-		table.insert(simulationModes, "Fixed")
-	end
-	if options.includeMovementEnabled then
-		table.insert(movements, true)
-	end
-	if options.includeMovementDisabled then
-		table.insert(movements, false)
-	end
-	if #simulationModes == 0 or #movements == 0 then
-		return { { error = "Select at least one simulation mode and one movement case in ConfigUI." } }
-	end
+	if options.includeMovementEnabled then table.insert(movements, true) end
+	if options.includeMovementDisabled then table.insert(movements, false) end
+	if #movements == 0 then return { { error = "Select at least one movement case in ConfigUI." } } end
 
 	local modeName = options.mode
 	assert(modeName == "Serial" or modeName == "Parallel", "PerfBench mode must be Serial or Parallel")
-	local selectedMode = Libraries[modeName]
-	if modeName == "Serial" then
-		selectedMode.library.Init(movementMode)
-	else
-		selectedMode.library.Init(options.workerCount, movementMode)
-	end
-	local originalMode = selectedMode.config.SimulationMode
+	local selected = Libraries[modeName]
+	if modeName == "Serial" then selected.library.Init(movementMode) else selected.library.Init(options.workerCount, movementMode) end
+
 	local results = {}
-
-	local ok, err = pcall(function()
-		for _, simulationMode in simulationModes do
-			setSimulationMode(modeName, simulationMode)
-			for _, movement in movements do
-				local result = runCase(
-					modeName,
-					simulationMode,
-					projectileCount,
-					sampleDuration,
-					options.instanced,
-					movement,
-					options.workerCount,
-					movementMode
-				)
-				table.insert(results, result)
-				task.wait(1)
-			end
-		end
-	end)
-
-	local restored, restoreError = pcall(setSimulationMode, modeName, originalMode)
-	if not restored then
-		table.insert(results, {
-			mode = modeName,
-			simulationMode = originalMode,
-			error = "Could not restore simulation mode: " .. tostring(restoreError),
-		})
+	for _, movement in movements do
+		local result = runCase(modeName, count, duration, options.instanced == true, movement, options.workerCount, movementMode)
+		table.insert(results, result)
+		if result.error then break end -- isolation: do not start another case after failed cleanup
+		task.wait(1) -- allow deferred termination/worker messages to settle
 	end
-
-	if not ok then
-		table.insert(results, { error = tostring(err) })
-	end
-
 	return results
 end
 
