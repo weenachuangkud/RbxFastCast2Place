@@ -7,10 +7,26 @@ local BenchmarkSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitF
 local PerfBenchSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2PerfBenchSettings"))
 local Reports = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2ToolReports"))
 
+-- These are the actual Config ModuleScripts used by each vendored library.
+local SerialConfig = require(ReplicatedStorage:WaitForChild("FastCast2Serial"):WaitForChild("Config"))
+local ParallelConfig = require(ReplicatedStorage:WaitForChild("FastCast2Parallel"):WaitForChild("Config"))
+local SerialSimulation = require(ReplicatedStorage.FastCast2Serial:WaitForChild("SerialSimulation"))
+local ParallelSimulation = require(ReplicatedStorage.FastCast2Parallel:WaitForChild("ParallelSimulation"))
+
 local Equipped = false
 local ModeSwitching = false
 
 local States = {
+	ConfigTarget = Iris.State("Serial"),
+	ConfigSimulationMode = Iris.State(SerialConfig.SimulationMode),
+	ConfigVisualizeCasts = Iris.State(SerialConfig.VisualizeCasts),
+	ConfigFixedFrequency = Iris.State(tostring(SerialConfig.FixedSimulationFrequency)),
+	ConfigCosmeticUpdateInterval = Iris.State(SerialConfig.CosmeticUpdateInterval),
+	DebugCasting = Iris.State(SerialConfig.DebugLogging.Casting),
+	DebugSegment = Iris.State(SerialConfig.DebugLogging.Segment),
+	DebugHit = Iris.State(SerialConfig.DebugLogging.Hit),
+	DebugPierced = Iris.State(SerialConfig.DebugLogging.Pierced),
+	DebugCalculation = Iris.State(SerialConfig.DebugLogging.Calculation),
 	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
 	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
 	WorkerCount = Iris.State(Wrapper.Settings.WorkerCount),
@@ -84,6 +100,121 @@ local function RequestWorkerCount(workerCount: number)
 	end)
 end
 
+local function GetConfigTarget()
+	if States.ConfigTarget.value == "Parallel" then
+		return ParallelConfig, ParallelSimulation
+	end
+	return SerialConfig, SerialSimulation
+end
+
+local function IsTestRunning()
+	return Reports.Benchmark.status == "Running"
+		or Reports.PerfBench.status == "Running"
+		or Reports.UnitTest.status == "Running"
+end
+
+local function RestartSelectedSimulation(simulation)
+	if IsTestRunning() then
+		return false
+	end
+	local ok, err = pcall(function()
+		simulation.Stop()
+		simulation.Start()
+	end)
+	if not ok then
+		warn("[FastCast2 ConfigUI] Could not restart simulation after Config change:", err)
+		return false
+	end
+	return true
+end
+
+local function RenderLibraryConfig()
+	Iris.SeparatorText({ "FastCast2 module Config" })
+	Iris.Text({ "Edit the actual Config table used by each local library runtime." })
+	for _, target in { "Serial", "Parallel" } do
+		if Iris.Button({ target .. " Config" }).clicked() then
+			States.ConfigTarget:set(target)
+		end
+	end
+
+	local config, simulation = GetConfigTarget()
+	States.ConfigSimulationMode:set(config.SimulationMode)
+	States.ConfigVisualizeCasts:set(config.VisualizeCasts)
+	States.ConfigFixedFrequency:set(tostring(config.FixedSimulationFrequency))
+	States.ConfigCosmeticUpdateInterval:set(config.CosmeticUpdateInterval)
+	States.DebugCasting:set(config.DebugLogging.Casting)
+	States.DebugSegment:set(config.DebugLogging.Segment)
+	States.DebugHit:set(config.DebugLogging.Hit)
+	States.DebugPierced:set(config.DebugLogging.Pierced)
+	States.DebugCalculation:set(config.DebugLogging.Calculation)
+
+	Iris.Text({ "Editing: " .. States.ConfigTarget.value })
+	Iris.Text({ "Simulation mode: " .. config.SimulationMode })
+	for _, mode in { "PerFrame", "Fixed" } do
+		if Iris.Button({ mode }).clicked() and config.SimulationMode ~= mode then
+			if IsTestRunning() then
+				warn("[FastCast2 ConfigUI] Finish benchmarks/tests before changing SimulationMode.")
+			else
+				local previousMode = config.SimulationMode
+				config.SimulationMode = mode
+				if not RestartSelectedSimulation(simulation) then
+					config.SimulationMode = previousMode
+				end
+				States.ConfigSimulationMode:set(config.SimulationMode)
+			end
+		end
+	end
+
+	Iris.Text({ "Fixed simulation frequency: " .. tostring(config.FixedSimulationFrequency) })
+	for _, frequency in {
+		{ name = "Hz30", value = Enum.StepFrequency.Hz30 },
+		{ name = "Hz60", value = Enum.StepFrequency.Hz60 },
+		{ name = "Hz120", value = Enum.StepFrequency.Hz120 },
+	} do
+		if Iris.Button({ frequency.name }).clicked() and config.FixedSimulationFrequency ~= frequency.value then
+			if IsTestRunning() then
+				warn("[FastCast2 ConfigUI] Finish benchmarks/tests before changing fixed frequency.")
+			else
+				config.FixedSimulationFrequency = frequency.value
+				if config.SimulationMode == "Fixed" then
+					RestartSelectedSimulation(simulation)
+				end
+				States.ConfigFixedFrequency:set(tostring(config.FixedSimulationFrequency))
+			end
+		end
+	end
+
+	local visualize = Iris.Checkbox({ "Config.VisualizeCasts" }, { isChecked = States.ConfigVisualizeCasts })
+	if visualize.checked() or visualize.unchecked() then
+		config.VisualizeCasts = States.ConfigVisualizeCasts.value
+	end
+
+	local interval = Iris.InputNum(
+		{ "Config.CosmeticUpdateInterval" },
+		{ number = States.ConfigCosmeticUpdateInterval }
+	)
+	if interval.numberChanged() then
+		local value = math.clamp(math.floor(States.ConfigCosmeticUpdateInterval.value), 1, 120)
+		States.ConfigCosmeticUpdateInterval:set(value)
+		config.CosmeticUpdateInterval = value
+	end
+
+	Iris.SeparatorText({ "Config.DebugLogging" })
+	for _, entry in {
+		{ label = "Casting", key = "Casting", state = States.DebugCasting },
+		{ label = "Segment", key = "Segment", state = States.DebugSegment },
+		{ label = "Hit", key = "Hit", state = States.DebugHit },
+		{ label = "Pierced", key = "Pierced", state = States.DebugPierced },
+		{ label = "Calculation", key = "Calculation", state = States.DebugCalculation },
+	} do
+		local checkbox = Iris.Checkbox({ entry.label }, { isChecked = entry.state })
+		if checkbox.checked() or checkbox.unchecked() then
+			config.DebugLogging[entry.key] = entry.state.value
+		end
+	end
+	Iris.Text({ "Config edits are local to this client. The server has its own Config module instance." })
+end
+
 local function RenderCosmeticSettings()
 	Iris.SeparatorText({ "Cosmetic projectile" })
 
@@ -147,6 +278,7 @@ end
 local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
+		RenderLibraryConfig()
 		Iris.SeparatorText({ "FastCast2 Benchmark" })
 		local projectileCount = Iris.InputNum(
 			{ "Projectile count" },
