@@ -13,6 +13,70 @@ end
 local busy = false
 local lastRequestAt = {}
 
+local ModuleConfigs = {
+	Serial = {
+		config = require(ReplicatedStorage:WaitForChild("FastCast2Serial"):WaitForChild("Config")),
+		simulation = require(ReplicatedStorage.FastCast2Serial:WaitForChild("SerialSimulation")),
+	},
+	Parallel = {
+		config = require(ReplicatedStorage:WaitForChild("FastCast2Parallel"):WaitForChild("Config")),
+		simulation = require(ReplicatedStorage.FastCast2Parallel:WaitForChild("ParallelSimulation")),
+	},
+}
+
+local function applyModuleConfig(options)
+	if type(options) ~= "table" then
+		return { error = "Config options must be a table." }
+	end
+	if options.target ~= "Serial" and options.target ~= "Parallel" then
+		return { error = "Invalid Config target." }
+	end
+	if options.simulationMode ~= "PerFrame" and options.simulationMode ~= "Fixed" then
+		return { error = "Invalid SimulationMode." }
+	end
+	local frequencyNames = {
+		Hz30 = Enum.StepFrequency.Hz30,
+		Hz60 = Enum.StepFrequency.Hz60,
+		Hz120 = Enum.StepFrequency.Hz120,
+	}
+	local frequency = frequencyNames[options.fixedFrequency]
+	if not frequency then
+		return { error = "Invalid fixed simulation frequency." }
+	end
+	if busy then
+		return { error = "Cannot edit module Config while a benchmark is running." }
+	end
+
+	local target = ModuleConfigs[options.target]
+	local config = target.config
+	local simulation = target.simulation
+	local modeChanged = config.SimulationMode ~= options.simulationMode
+	local frequencyChanged = config.FixedSimulationFrequency ~= frequency
+	if not modeChanged and not frequencyChanged then
+		return { ok = true, target = options.target, simulationMode = config.SimulationMode }
+	end
+
+	local oldMode = config.SimulationMode
+	local oldFrequency = config.FixedSimulationFrequency
+	local wasRunning = modeChanged or (frequencyChanged and config.SimulationMode == "Fixed")
+	local ok, err = pcall(function()
+		if wasRunning then simulation.Stop() end
+		config.SimulationMode = options.simulationMode
+		config.FixedSimulationFrequency = frequency
+		if wasRunning then simulation.Start() end
+	end)
+	if not ok then
+		config.SimulationMode = oldMode
+		config.FixedSimulationFrequency = oldFrequency
+		pcall(function()
+			simulation.Stop()
+			simulation.Start()
+		end)
+		return { error = "Could not apply server Config: " .. tostring(err) }
+	end
+	return { ok = true, target = options.target, simulationMode = config.SimulationMode }
+end
+
 local function ownsTool(player, name)
 	local character = player.Character
 	local backpack = player:FindFirstChildOfClass("Backpack")
@@ -123,6 +187,13 @@ local function runPerfBench(options)
 end
 
 remote.OnServerInvoke = function(player, action, options)
+	if action == "SetModuleConfig" then
+		if not ownsTool(player, "ConfigUI") then
+			return { error = "Equip ConfigUI before editing server module Config." }
+		end
+		return applyModuleConfig(options)
+	end
+
 	local toolName = if action == "Benchmark" then "Benchmark" elseif action == "PerfBench" then "PerfBench" else nil
 	if not toolName or not ownsTool(player, toolName) then
 		return { error = "Equip the matching benchmark tool before requesting a server run." }
