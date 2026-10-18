@@ -132,9 +132,7 @@ local function RestartSelectedSimulation(simulation)
 end
 
 local function GetFrequencyName(frequency)
-	if frequency == Enum.StepFrequency.Hz30 then return "Hz30" end
-	if frequency == Enum.StepFrequency.Hz120 then return "Hz120" end
-	return "Hz60"
+	return frequency.Name
 end
 
 local function SyncServerModuleConfig(target: "Serial" | "Parallel", config)
@@ -208,9 +206,12 @@ local function RenderLibraryConfig()
 
 		Iris.Text({ "Fixed simulation frequency: " .. tostring(config.FixedSimulationFrequency) })
 		for _, frequency in {
+			{ name = "Hz1", value = Enum.StepFrequency.Hz1 },
+			{ name = "Hz5", value = Enum.StepFrequency.Hz5 },
+			{ name = "Hz10", value = Enum.StepFrequency.Hz10 },
+			{ name = "Hz15", value = Enum.StepFrequency.Hz15 },
 			{ name = "Hz30", value = Enum.StepFrequency.Hz30 },
 			{ name = "Hz60", value = Enum.StepFrequency.Hz60 },
-			{ name = "Hz120", value = Enum.StepFrequency.Hz120 },
 		} do
 			if Iris.Button({ frequency.name }).clicked() and config.FixedSimulationFrequency ~= frequency.value then
 				if IsTestRunning() then
