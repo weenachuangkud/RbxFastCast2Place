@@ -13,6 +13,7 @@ local ModeSwitching = false
 local States = {
 	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
 	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
+	WorkerCount = Iris.State(Wrapper.Settings.WorkerCount),
 	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
 	PerfSampleDuration = Iris.State(PerfBenchSettings.SampleDuration),
 	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
@@ -49,6 +50,35 @@ local function RequestMode(mode: "Serial" | "Parallel")
 			States.MaxDistance:set(Wrapper.Behavior.MaxDistance)
 			States.HighFidelitySegmentSize:set(Wrapper.Behavior.HighFidelitySegmentSize)
 			States.AccelerationY:set(Wrapper.Behavior.Acceleration.Y)
+		end
+		ModeSwitching = false
+	end)
+end
+
+local function RequestWorkerCount(workerCount: number)
+	if ModeSwitching or Wrapper.State == "Initializing" then
+		return
+	end
+	workerCount = math.clamp(math.floor(workerCount), 1, 32)
+	if workerCount == Wrapper.Settings.WorkerCount then
+		States.WorkerCount:set(workerCount)
+		return
+	end
+	if Reports.Benchmark.status == "Running" or Reports.PerfBench.status == "Running" or Reports.UnitTest.status == "Running" then
+		States.WorkerCount:set(Wrapper.Settings.WorkerCount)
+		warn("[FastCast2 ConfigUI] Wait for the current benchmark or test to finish before resizing Actors.")
+		return
+	end
+
+	States.WorkerCount:set(workerCount)
+	ModeSwitching = true
+	task.spawn(function()
+		local ok, err = pcall(function()
+			Wrapper:SetWorkerCount(workerCount)
+		end)
+		if not ok then
+			States.WorkerCount:set(Wrapper.Settings.WorkerCount)
+			warn("[FastCast2 ConfigUI] Could not change Actor count:", err)
 		end
 		ModeSwitching = false
 	end)
@@ -146,7 +176,18 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.Text({ "Benchmark runs the selected cast type; PerfBench runs the separate PerFrame / Fixed stress comparison." })
+		Iris.Text({ "Benchmark and PerfBench use the selected Serial / Parallel mode. Benchmark runs the selected cast type; PerfBench runs the configured PerFrame / Fixed cases." })
+		local workerCount = Iris.InputNum(
+			{ "Parallel Actor count" },
+			{ number = States.WorkerCount }
+		)
+		if workerCount.numberChanged() then
+			RequestWorkerCount(States.WorkerCount.value)
+		end
+		Iris.Text({ "Used by Parallel mode only; changing the active Actor pool pauses the wrapper for 6 seconds." })
+		if not ModeSwitching then
+			States.WorkerCount:set(Wrapper.Settings.WorkerCount)
+		end
 		Iris.SeparatorText({ "Latest Benchmark Results" })
 		Iris.Text({ "Benchmark status: " .. Reports.Benchmark.status })
 		if Reports.Benchmark.error then

@@ -35,6 +35,7 @@ local function runPerfBench()
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				maxProjectileCount = Settings.MaxProjectileCount,
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
+				mode = Wrapper.Settings.Mode,
 				workerCount = Wrapper.Settings.WorkerCount,
 				instanced = Settings.Instanced,
 				includePerFrame = Settings.IncludePerFrame,

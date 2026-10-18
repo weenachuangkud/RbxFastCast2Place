@@ -41,6 +41,7 @@ local function runBenchmark()
 			return BenchmarkRunner.run({
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
+				mode = Wrapper.Settings.Mode,
 				workerCount = Wrapper.Settings.WorkerCount,
 				castType = Wrapper.Settings.CastType,
 				movementMode = Wrapper.Settings.MovementMode,
@@ -70,7 +71,7 @@ local function runBenchmark()
 				results = resultOrError,
 				error = nil,
 			}
-			print("[FastCast2 Benchmark] Complete for " .. Wrapper.Settings.CastType .. ". See ConfigUI for the results table.")
+			print("[FastCast2 Benchmark] Complete for " .. Wrapper.Settings.Mode .. " / " .. Wrapper.Settings.CastType .. ". See ConfigUI for the results table.")
 		else
 			Reports.Benchmark = {
 				status = "Failed",

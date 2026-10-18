@@ -5,8 +5,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
 local Network = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Network"))
 
-local ParallelWorkerCount = nil
-
 local function isFiniteNumber(value)
 	return type(value) == "number" and value == value and math.abs(value) < math.huge
 end
@@ -72,21 +70,8 @@ local function applyConfiguration(payload)
 		math.clamp(payload.acceleration.Z, -100000, 100000)
 	)
 
-	-- Parallel.Init cannot resize an already-created worker pool. Keep its worker
-	-- count stable even if a client sends a different value later.
-	if mode == "Parallel" then
-		if ParallelWorkerCount and workerCount ~= ParallelWorkerCount then
-			workerCount = ParallelWorkerCount
-		else
-			ParallelWorkerCount = workerCount
-		end
-	elseif ParallelWorkerCount then
-		workerCount = ParallelWorkerCount
-	end
-
 	local modeChanged = Wrapper.Settings.Mode ~= mode
 	Wrapper.Settings.MovementMode = movementMode
-	Wrapper.Settings.WorkerCount = workerCount
 	Wrapper.Settings.Velocity = velocity
 	Wrapper.Settings.CastType = if payload.castType == 2 then "Blockcast" elseif payload.castType == 3 then "Spherecast" else "Raycast"
 	Wrapper.Settings.BlockcastSize = blockcastSize
@@ -95,8 +80,15 @@ local function applyConfiguration(payload)
 	-- Set runtime initialization inputs before switching modes. For an unchanged
 	-- mode, update the existing shared movement runtime directly.
 	if modeChanged then
+		Wrapper.Settings.WorkerCount = workerCount
 		Wrapper:SetMode(mode)
-	elseif Wrapper:IsReady() then
+	elseif mode == "Parallel" then
+		Wrapper:SetWorkerCount(workerCount)
+	elseif Wrapper.Settings.WorkerCount ~= workerCount then
+		Wrapper.Settings.WorkerCount = workerCount
+	end
+
+	if Wrapper:IsReady() then
 		Wrapper.Caster:SetMovementModeEnabled(true, movementMode)
 	end
 

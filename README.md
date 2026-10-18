@@ -27,14 +27,14 @@ To update a dependency deliberately, enter its submodule, check out the intended
 - Client and server contexts have independent wrapper state. ByteNet synchronizes shared cast settings and relays fire requests to the server.
 - StarterPack tools share the wrapper instead of creating their own casters.
 
-The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated.
+The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI; resizing requires an idle Parallel runtime and leaves the wrapper unavailable for six seconds.
 
 ## Tools
 
 - **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, projectile cosmetics, and benchmark options. It also displays the latest benchmark and unit-test results locally, without requiring server logs.
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
-- **Benchmark** — click to benchmark the currently selected cast type in Serial and Parallel modes, using the wrapper’s current movement, cosmetic, velocity, and fidelity settings.
-- **PerfBench** — click separately to run the Raycast PerFrame/Fixed comparison. Its count, sample duration, instancing, simulation modes, and movement cases are configured independently in ConfigUI.
+- **Benchmark** — click to benchmark the currently selected cast type in the selected Serial or Parallel mode, using the wrapper’s current movement, cosmetic, velocity, fidelity, and Actor-count settings.
+- **PerfBench** — click separately to run the selected Serial or Parallel implementation through the configured Raycast PerFrame/Fixed cases. Its count, sample duration, instancing, simulation modes, and movement cases are configured independently in ConfigUI.
 - **UnitTest** — click to run the upstream functional tests for both Serial and Parallel. Benchmark, PerfBench, and UnitTest initialize FastCast2 on demand if ConfigUI has not been equipped yet.
 
 Configure options in ConfigUI, run Benchmark, PerfBench, or UnitTest, then equip ConfigUI again to inspect the latest client-side report.
@@ -73,5 +73,5 @@ rojo build default.project.json -o RbxFastCast2Place.rbxlx
 
 - ConfigUI changes are sent through ByteNet when values change. The server clamps accepted values and remains responsible for authoritative hit detection; client firing is prediction only.
 - Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
-- Benchmark controls are available in ConfigUI. The Benchmark, PerfBench, and UnitTest tools show result summaries in ConfigUI as well as emitting diagnostic output to the client console. PerfBench temporarily switches each runtime between PerFrame and Fixed and restores the original modes afterward.
+- Benchmark controls are available in ConfigUI. The Benchmark, PerfBench, and UnitTest tools show result summaries in ConfigUI as well as emitting diagnostic output to the client console. PerfBench temporarily switches the selected runtime between PerFrame and Fixed and restores its original mode afterward.
 - This change has not been run in Roblox Studio yet.

@@ -47,7 +47,7 @@ local Wrapper = {
 
 	Settings = {
 		Mode = "Serial",
-		Context = "Both",
+		Context = "Client",
 		MovementMode = "BulkMoveTo",
 		WorkerCount = 4,
 		Velocity = 50,
@@ -168,6 +168,10 @@ local function CreateCaster(self)
 	if self.Settings.Mode == "Serial" then
 		library.Init(self.Settings.MovementMode)
 	else
+		local resized = library.ReconfigureWorkers(self.Settings.WorkerCount)
+		if resized then
+			task.wait(6)
+		end
 		library.Init(self.Settings.WorkerCount, self.Settings.MovementMode, self.FastCastEventsModule)
 	end
 
@@ -255,6 +259,41 @@ function Wrapper:SetMode(mode: CasterMode)
 	return InitializeInternal(self)
 end
 
+function Wrapper:SetWorkerCount(workerCount: number)
+	AssertNotInitializing(self)
+	assert(type(workerCount) == "number" and workerCount == workerCount and workerCount % 1 == 0,
+		"Worker count must be an integer.")
+	workerCount = math.clamp(workerCount, 1, 32)
+	if workerCount == self.Settings.WorkerCount then
+		return self.Caster
+	end
+
+	local previousWorkerCount = self.Settings.WorkerCount
+	self.Settings.WorkerCount = workerCount
+	-- Remember the setting in Serial mode; the Parallel pool is resized when
+	-- Parallel is next initialized.
+	if self.Settings.Mode ~= "Parallel" or self.State ~= "Ready" then
+		return self.Caster
+	end
+
+	self.State = "Initializing"
+	local oldCaster = self.Caster
+	self.Caster = nil
+	self.Library = nil
+	if oldCaster then
+		oldCaster:Destroy()
+	end
+
+	-- CreateCaster rebuilds the shared Actor pool and enforces the six-second
+	-- cooldown while the wrapper remains unavailable.
+	local ok, result = pcall(InitializeInternal, self)
+	if not ok then
+		self.Settings.WorkerCount = previousWorkerCount
+		error(result, 2)
+	end
+	return result
+end
+
 function Wrapper:SetCosmeticMode(mode: CosmeticMode)
 	AssertNotInitializing(self)
 	assert(mode == "Instanced" or mode == "Instanceless", "Cosmetic mode must be Instanced or Instanceless.")
@@ -324,6 +363,9 @@ function Wrapper:SyncConfiguration()
 	if not RunService:IsClient() then
 		return
 	end
+	if self.State == "Initializing" then
+		return
+	end
 	local configuration = EncodeConfiguration(self)
 	local key = table.concat({
 		tostring(configuration.mode), tostring(configuration.movementMode),
@@ -340,26 +382,28 @@ function Wrapper:SyncConfiguration()
 end
 
 local function ApplyConfiguration(self, payload)
-	-- Set runtime initialization inputs before SetMode creates a new caster.
-	-- Parallel.Init consumes WorkerCount only on its first initialization.
+	-- Apply worker settings before any mode switch creates its replacement caster.
 	local mode = if payload.mode == 2 then "Parallel" else "Serial"
 	local movementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
 
 	self.Settings.Velocity = payload.velocity
 	self.Settings.MovementMode = movementMode
-	self.Settings.WorkerCount = payload.workerCount
 	self.Settings.CastType = if payload.castType == 2 then "Blockcast" elseif payload.castType == 3 then "Spherecast" else "Raycast"
 	self.Settings.BlockcastSize = payload.blockcastSize
 	self.Settings.SpherecastRadius = payload.spherecastRadius
 
 	if self.Settings.Mode ~= mode then
+		self.Settings.WorkerCount = payload.workerCount
 		self:SetMode(mode)
-	elseif self:IsReady() then
-		-- Init updates movement mode but does not rebuild the caster.
+	elseif mode == "Parallel" then
+		self:SetWorkerCount(payload.workerCount)
+	elseif self.Settings.WorkerCount ~= payload.workerCount then
+		self.Settings.WorkerCount = payload.workerCount
+	end
+
+	if self:IsReady() then
 		if mode == "Serial" then
 			SerialFastCast.Init(movementMode)
-		else
-			ParallelFastCast.Init(self.Settings.WorkerCount, movementMode, self.FastCastEventsModule)
 		end
 		self.Caster:SetMovementModeEnabled(true, movementMode)
 	end
@@ -393,6 +437,7 @@ function Wrapper:FireLocal(origin: Vector3, direction: Vector3, velocity: (numbe
 end
 
 function Wrapper:SetContext(context: FireContext)
+	AssertNotInitializing(self)
 	assert(context == "Client" or context == "Server" or context == "Both", "Context must be Client, Server, or Both.")
 	self.Settings.Context = context
 end
@@ -410,6 +455,7 @@ local function EncodeFire(origin, direction, velocity, context: FireContext)
 end
 
 function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
+	AssertNotInitializing(self)
 	assert(typeof(origin) == "Vector3", "Origin must be a Vector3.")
 	assert(typeof(direction) == "Vector3" and direction.Magnitude > 0, "Direction must be a non-zero Vector3.")
 	local context = self.Settings.Context

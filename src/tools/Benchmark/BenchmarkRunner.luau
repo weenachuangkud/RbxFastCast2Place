@@ -207,17 +207,13 @@ local function runMode(modeName, options)
 end
 
 function Benchmark.run(options)
-	local results = {}
-	for _, modeName in { "Serial", "Parallel" } do
-		local ok, result = pcall(runMode, modeName, options)
-		if ok then
-			table.insert(results, result)
-		else
-			table.insert(results, { mode = modeName, castType = options.castType, error = tostring(result) })
-		end
-		task.wait(1)
+	local modeName = options.mode
+	assert(modeName == "Serial" or modeName == "Parallel", "Benchmark mode must be Serial or Parallel")
+	local ok, result = pcall(runMode, modeName, options)
+	if not ok then
+		result = { mode = modeName, castType = options.castType, error = tostring(result) }
 	end
-	return results
+	return { result }
 end
 
 return Benchmark

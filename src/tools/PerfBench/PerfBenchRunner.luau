@@ -214,6 +214,7 @@ end
 function PerfBench.run(options: {
 	projectileCount: number,
 	sampleDuration: number,
+	mode: string,
 	workerCount: number,
 	instanced: boolean,
 	includePerFrame: boolean,
@@ -245,46 +246,44 @@ function PerfBench.run(options: {
 		return { { error = "Select at least one simulation mode and one movement case in ConfigUI." } }
 	end
 
-	Libraries.Serial.library.Init(movementMode)
-	Libraries.Parallel.library.Init(options.workerCount, movementMode)
-
-	local originalModes = {
-		Serial = Libraries.Serial.config.SimulationMode,
-		Parallel = Libraries.Parallel.config.SimulationMode,
-	}
+	local modeName = options.mode
+	assert(modeName == "Serial" or modeName == "Parallel", "PerfBench mode must be Serial or Parallel")
+	local selectedMode = Libraries[modeName]
+	if modeName == "Serial" then
+		selectedMode.library.Init(movementMode)
+	else
+		selectedMode.library.Init(options.workerCount, movementMode)
+	end
+	local originalMode = selectedMode.config.SimulationMode
 	local results = {}
 
 	local ok, err = pcall(function()
 		for _, simulationMode in simulationModes do
-			for _, modeName in { "Serial", "Parallel" } do
-				setSimulationMode(modeName, simulationMode)
-				for _, movement in movements do
-					local result = runCase(
-						modeName,
-						simulationMode,
-						projectileCount,
-						sampleDuration,
-						options.instanced,
-						movement,
-						options.workerCount,
-						movementMode
-					)
-					table.insert(results, result)
-					task.wait(1)
-				end
+			setSimulationMode(modeName, simulationMode)
+			for _, movement in movements do
+				local result = runCase(
+					modeName,
+					simulationMode,
+					projectileCount,
+					sampleDuration,
+					options.instanced,
+					movement,
+					options.workerCount,
+					movementMode
+				)
+				table.insert(results, result)
+				task.wait(1)
 			end
 		end
 	end)
 
-	for modeName, originalMode in originalModes do
-		local restored, restoreError = pcall(setSimulationMode, modeName, originalMode)
-		if not restored then
-			table.insert(results, {
-				mode = modeName,
-				simulationMode = originalMode,
-				error = "Could not restore simulation mode: " .. tostring(restoreError),
-			})
-		end
+	local restored, restoreError = pcall(setSimulationMode, modeName, originalMode)
+	if not restored then
+		table.insert(results, {
+			mode = modeName,
+			simulationMode = originalMode,
+			error = "Could not restore simulation mode: " .. tostring(restoreError),
+		})
 	end
 
 	if not ok then
