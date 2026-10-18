@@ -177,11 +177,14 @@ local function runMode(modeName, options)
 			end)
 		end
 	end
-	task.wait(1)
-	local cleanupMs = (os.clock() - cleanupStarted) * 1000
+	local cleanupDeadline = os.clock() + 5
+	while #activeCasts > 0 and os.clock() < cleanupDeadline do
+		task.wait()
+	end
 	pcall(function()
 		caster:Destroy()
 	end)
+	local cleanupMs = (os.clock() - cleanupStarted) * 1000
 	if cosmeticTemplate then
 		cosmeticTemplate:Destroy()
 	end
