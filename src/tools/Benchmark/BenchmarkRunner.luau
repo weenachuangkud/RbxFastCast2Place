@@ -168,8 +168,9 @@ local function runMode(modeName, options)
 
 	-- Explicitly terminate remaining casts so one mode cannot pollute the next.
 	local cleanupStarted = os.clock()
-	for i = #activeCasts, 1, -1 do
-		local cast = activeCasts[i]
+	local castsToTerminate = table.clone(activeCasts)
+	for i = #castsToTerminate, 1, -1 do
+		local cast = castsToTerminate[i]
 		if cast then
 			pcall(function()
 				library:TerminateCast(cast)
