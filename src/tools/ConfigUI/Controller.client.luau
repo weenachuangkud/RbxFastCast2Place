@@ -32,7 +32,6 @@ local States = {
 	WorkerCount = Iris.State(Wrapper.Settings.WorkerCount),
 	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
 	PerfSampleDuration = Iris.State(PerfBenchSettings.SampleDuration),
-	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
 	PerfMovementEnabled = Iris.State(PerfBenchSettings.IncludeMovementEnabled),
 	PerfMovementDisabled = Iris.State(PerfBenchSettings.IncludeMovementDisabled),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
@@ -429,13 +428,6 @@ local function RenderConfig()
 			if perfSampleDuration.numberChanged() then
 				PerfBenchSettings.SampleDuration = States.PerfSampleDuration.value
 			end
-			local perfInstanced = Iris.Checkbox(
-				{ "PerfBench instanced projectiles" },
-				{ isChecked = States.PerfInstanced }
-			)
-			if perfInstanced.checked() or perfInstanced.unchecked() then
-				PerfBenchSettings.Instanced = States.PerfInstanced.value
-			end
 			for _, toggle in {
 				{ label = "Movement enabled case", state = States.PerfMovementEnabled, key = "IncludeMovementEnabled" },
 				{ label = "Movement disabled case", state = States.PerfMovementDisabled, key = "IncludeMovementDisabled" },
@@ -452,7 +444,7 @@ local function RenderConfig()
 				Iris.Text({ "PerfBench error: " .. Reports.PerfBench.error })
 			end
 			if #Reports.PerfBench.results > 0 then
-				Iris.Text({ "Server Heartbeat stress benchmark using the current FastCast2 Config (instancing and movement toggled):" })
+				Iris.Text({ "Server Heartbeat stress benchmark using the current FastCast2 Config (instanceless casts; movement toggled):" })
 			end
 			for _, result in Reports.PerfBench.results do
 				if result.error then
@@ -460,11 +452,7 @@ local function RenderConfig()
 					Iris.Text({ "Error: " .. result.error })
 				else
 					Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode or "PerfBench", result.simulationMode or "") })
-					Iris.Text({ string.format(
-						"Setup: instanced %s | movement %s",
-						tostring(result.instanced),
-						tostring(result.movement)
-					) })
+					Iris.Text({ "Setup: instanceless | movement " .. tostring(result.movement) })
 					Iris.Text({ string.format(
 						"Casts: %d fired | %d remaining at cleanup",
 						result.firedCasts or 0,
