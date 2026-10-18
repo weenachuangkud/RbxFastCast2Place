@@ -1,7 +1,6 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tool = script.Parent :: Tool
-local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
 local Reports = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2ToolReports"))
 
 local IsRunning = false
@@ -67,20 +66,6 @@ local function runTests()
 		warn("[FastCast2 UnitTest] Wait for the benchmark run to finish first.")
 		return
 	end
-	local initialized, initializeError = pcall(function()
-		Wrapper:Initialize()
-	end)
-	if not initialized then
-		Reports.UnitTest = {
-			status = "Failed",
-			modes = {},
-			failures = {},
-			error = tostring(initializeError),
-		}
-		warn("[FastCast2 UnitTest] Could not initialize FastCast2:", initializeError)
-		return
-	end
-
 	IsRunning = true
 	Reports.UnitTest = { status = "Running", modes = {}, failures = {}, error = nil }
 	task.spawn(function()
