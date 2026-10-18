@@ -118,13 +118,20 @@ local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
 		Iris.SeparatorText({ "FastCast2 Benchmark" })
-		local projectileCount = Iris.SliderNum(
-			{ "Projectile count", 8000, 1, BenchmarkSettings.MaxProjectileCount },
+		local projectileCount = Iris.InputNum(
+			{ "Projectile count" },
 			{ number = States.ProjectileCount }
 		)
 		if projectileCount.numberChanged() then
-			BenchmarkSettings.ProjectileCount = math.floor(States.ProjectileCount.value)
+			local count = math.clamp(
+				math.floor(States.ProjectileCount.value),
+				1,
+				BenchmarkSettings.MaxProjectileCount
+			)
+			States.ProjectileCount:set(count)
+			BenchmarkSettings.ProjectileCount = count
 		end
+		Iris.Text({ string.format("Default: 8,000 | allowed range: 1 to %d.", BenchmarkSettings.MaxProjectileCount) })
 		local sampleDuration = Iris.SliderNum(
 			{ "Sample duration (seconds)", 1, 1, 10 },
 			{ number = States.SampleDuration }
@@ -140,42 +147,55 @@ local function RenderConfig()
 		end
 
 		Iris.Text({ "Benchmark runs the selected cast type; PerfBench runs the separate PerFrame / Fixed stress comparison." })
+		Iris.SeparatorText({ "Latest Benchmark Results" })
 		Iris.Text({ "Benchmark status: " .. Reports.Benchmark.status })
 		if Reports.Benchmark.error then
 			Iris.Text({ "Benchmark error: " .. Reports.Benchmark.error })
 		end
 		for _, result in Reports.Benchmark.results do
 			if result.error then
-				Iris.Text({ string.format("%s / %s: %s", result.mode, result.castType, result.error) })
+				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.castType) })
+				Iris.Text({ "Error: " .. result.error })
 			else
+				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.castType) })
 				Iris.Text({ string.format(
-					"%s / %s | fired %d | remaining %d | %d frames | avg %.2f FPS (%.2f ms) | min %.2f FPS | max %.2f FPS | P50/P95/P99 %.2f/%.2f/%.2f ms | create %.2f ms | cleanup %.2f ms",
-					result.mode,
-					result.castType,
+					"Casts: %d fired | %d remaining at cleanup",
 					result.firedCasts or 0,
-					result.remainingCastsAtCleanup or 0,
-					result.frames,
+					result.remainingCastsAtCleanup or 0
+				) })
+				Iris.Text({ string.format(
+					"FPS: average %.2f | minimum %.2f | maximum %.2f",
 					result.averageFps,
-					result.averageFrameMs,
 					result.minFps,
-					result.maxFps,
+					result.maxFps
+				) })
+				Iris.Text({ string.format(
+					"Frame time: %d frames | average %.2f ms | P50 %.2f | P95 %.2f | P99 %.2f ms",
+					result.frames,
+					result.averageFrameMs,
 					result.p50FrameMs,
 					result.p95FrameMs,
-					result.p99FrameMs,
-					result.creationMs,
-					result.cleanupMs
+					result.p99FrameMs
 				) })
+				Iris.Text({ string.format("Create: %.2f ms | cleanup: %.2f ms", result.creationMs, result.cleanupMs) })
 			end
 		end
 
 		Iris.SeparatorText({ "FastCast2 PerfBench" })
-		local perfProjectileCount = Iris.SliderNum(
-			{ "PerfBench projectile count", 8000, 1, PerfBenchSettings.MaxProjectileCount },
+		local perfProjectileCount = Iris.InputNum(
+			{ "PerfBench projectile count" },
 			{ number = States.PerfProjectileCount }
 		)
 		if perfProjectileCount.numberChanged() then
-			PerfBenchSettings.ProjectileCount = math.floor(States.PerfProjectileCount.value)
+			local count = math.clamp(
+				math.floor(States.PerfProjectileCount.value),
+				1,
+				PerfBenchSettings.MaxProjectileCount
+			)
+			States.PerfProjectileCount:set(count)
+			PerfBenchSettings.ProjectileCount = count
 		end
+		Iris.Text({ string.format("Default: 8,000 | allowed range: 1 to %d.", PerfBenchSettings.MaxProjectileCount) })
 		local perfSampleDuration = Iris.SliderNum(
 			{ "PerfBench sample duration (seconds)", 5, 1, 10 },
 			{ number = States.PerfSampleDuration }
@@ -202,6 +222,7 @@ local function RenderConfig()
 			end
 		end
 		Iris.Text({ "These options affect only PerfBench; it runs Raycast cases, separate from the selected-cast Benchmark." })
+		Iris.SeparatorText({ "Latest PerfBench Results" })
 		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
 		if Reports.PerfBench.error then
 			Iris.Text({ "PerfBench error: " .. Reports.PerfBench.error })
@@ -211,22 +232,28 @@ local function RenderConfig()
 		end
 		for _, result in Reports.PerfBench.results do
 			if result.error then
-				Iris.Text({ string.format("%s / %s: %s", result.mode or "PerfBench", result.simulationMode or "", result.error) })
+				Iris.SeparatorText({ string.format("%s / %s", result.mode or "PerfBench", result.simulationMode or "") })
+				Iris.Text({ "Error: " .. result.error })
 			else
+				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.simulationMode) })
 				Iris.Text({ string.format(
-					"%s / %s | instanced=%s | movement=%s | fired %d | remaining %d | create %.2f ms | avg %.2f | p95 %.2f | p99 %.2f | cleanup %.2f",
-					result.mode,
-					result.simulationMode,
+					"Setup: instanced %s | movement %s",
 					tostring(result.instanced),
-					tostring(result.movement),
-					result.firedCasts or 0,
-					result.remainingCastsAtCleanup or 0,
-					result.creationMs,
-					result.averageFrameMs,
-					result.p95FrameMs,
-					result.p99FrameMs,
-					result.cleanupMs
+					tostring(result.movement)
 				) })
+				Iris.Text({ string.format(
+					"Casts: %d fired | %d remaining at cleanup",
+					result.firedCasts or 0,
+					result.remainingCastsAtCleanup or 0
+				) })
+				Iris.Text({ string.format(
+					"Frame time: average %.2f ms | P50 %.2f | P95 %.2f | P99 %.2f ms",
+					result.averageFrameMs,
+					result.p50FrameMs,
+					result.p95FrameMs,
+					result.p99FrameMs
+				) })
+				Iris.Text({ string.format("Create: %.2f ms | cleanup: %.2f ms", result.creationMs, result.cleanupMs) })
 			end
 		end
 
