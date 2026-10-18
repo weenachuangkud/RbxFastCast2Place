@@ -100,8 +100,6 @@ local function GetDefaultCosmeticTemplate(): BasePart
 	part.CanTouch = false
 	part.CanQuery = false
 	part.CastShadow = false
-	part.Material = Enum.Material.Neon
-	part.Color = Color3.fromRGB(255, 220, 80)
 	part.Parent = ReplicatedStorage
 	return part
 end
