@@ -1,4 +1,4 @@
 return {
 	ProjectileCount = 500,
-	SampleDuration = 4,
+	SampleDuration = 6,
 }

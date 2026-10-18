@@ -180,11 +180,34 @@ function PerfBench.run(options: {
 	projectileCount: number,
 	sampleDuration: number,
 	workerCount: number,
-	movementMode: string?,
+	instanced: boolean,
+	includePerFrame: boolean,
+	includeFixed: boolean,
+	includeMovementEnabled: boolean,
+	includeMovementDisabled: boolean,
 }): { any }
+	-- Keep the perfbench workload separate from benchmarks/: Raycast only,
+	-- with independently configurable simulation mode, instancing, and movement.
 	local projectileCount = math.clamp(math.floor(options.projectileCount), 1, 10000)
 	local sampleDuration = math.clamp(options.sampleDuration, 1, 10)
-	local movementMode = options.movementMode or "BulkMoveTo"
+	local movementMode = "BulkMoveTo"
+	local simulationModes = {}
+	local movements = {}
+	if options.includePerFrame then
+		table.insert(simulationModes, "PerFrame")
+	end
+	if options.includeFixed then
+		table.insert(simulationModes, "Fixed")
+	end
+	if options.includeMovementEnabled then
+		table.insert(movements, true)
+	end
+	if options.includeMovementDisabled then
+		table.insert(movements, false)
+	end
+	if #simulationModes == 0 or #movements == 0 then
+		return { { error = "Select at least one simulation mode and one movement case in ConfigUI." } }
+	end
 
 	Libraries.Serial.library.Init(movementMode)
 	Libraries.Parallel.library.Init(options.workerCount, movementMode)
@@ -196,24 +219,22 @@ function PerfBench.run(options: {
 	local results = {}
 
 	local ok, err = pcall(function()
-		for _, simulationMode in { "PerFrame", "Fixed" } do
+		for _, simulationMode in simulationModes do
 			for _, modeName in { "Serial", "Parallel" } do
 				setSimulationMode(modeName, simulationMode)
-				for _, instanced in { true, false } do
-					for _, movement in { true, false } do
-						local result = runCase(
-							modeName,
-							simulationMode,
-							projectileCount,
-							sampleDuration,
-							instanced,
-							movement,
-							options.workerCount,
-							movementMode
-						)
-						table.insert(results, result)
-						task.wait(1)
-					end
+				for _, movement in movements do
+					local result = runCase(
+						modeName,
+						simulationMode,
+						projectileCount,
+						sampleDuration,
+						options.instanced,
+						movement,
+						options.workerCount,
+						movementMode
+					)
+					table.insert(results, result)
+					task.wait(1)
 				end
 			end
 		end

@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Tool = script.Parent :: Tool
 local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
-local Settings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2BenchmarkSettings"))
+local Settings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2PerfBenchSettings"))
 local Reports = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2ToolReports"))
 
 local IsRunning = false
@@ -35,7 +35,11 @@ local function runPerfBench()
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, 10000),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				workerCount = Wrapper.Settings.WorkerCount,
-				movementMode = Wrapper.Settings.MovementMode,
+				instanced = Settings.Instanced,
+				includePerFrame = Settings.IncludePerFrame,
+				includeFixed = Settings.IncludeFixed,
+				includeMovementEnabled = Settings.IncludeMovementEnabled,
+				includeMovementDisabled = Settings.IncludeMovementDisabled,
 			})
 		end)
 

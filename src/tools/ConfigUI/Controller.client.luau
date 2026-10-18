@@ -4,6 +4,7 @@ local Tool = script.Parent :: Tool
 local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
 local Iris = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("IrisClient"))
 local BenchmarkSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2BenchmarkSettings"))
+local PerfBenchSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2PerfBenchSettings"))
 local Reports = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2ToolReports"))
 
 local Equipped = false
@@ -12,6 +13,13 @@ local ModeSwitching = false
 local States = {
 	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
 	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
+	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
+	PerfSampleDuration = Iris.State(PerfBenchSettings.SampleDuration),
+	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
+	PerfPerFrame = Iris.State(PerfBenchSettings.IncludePerFrame),
+	PerfFixed = Iris.State(PerfBenchSettings.IncludeFixed),
+	PerfMovementEnabled = Iris.State(PerfBenchSettings.IncludeMovementEnabled),
+	PerfMovementDisabled = Iris.State(PerfBenchSettings.IncludeMovementDisabled),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
 	BlockcastSize = Iris.State(Wrapper.Settings.BlockcastSize.X),
 	SpherecastRadius = Iris.State(Wrapper.Settings.SpherecastRadius),
@@ -151,6 +159,39 @@ local function RenderConfig()
 		end
 
 		Iris.SeparatorText({ "FastCast2 PerfBench" })
+		local perfProjectileCount = Iris.SliderNum(
+			{ "PerfBench projectile count", 6000, 1, 10000 },
+			{ number = States.PerfProjectileCount }
+		)
+		if perfProjectileCount.numberChanged() then
+			PerfBenchSettings.ProjectileCount = math.floor(States.PerfProjectileCount.value)
+		end
+		local perfSampleDuration = Iris.SliderNum(
+			{ "PerfBench sample duration (seconds)", 5, 1, 10 },
+			{ number = States.PerfSampleDuration }
+		)
+		if perfSampleDuration.numberChanged() then
+			PerfBenchSettings.SampleDuration = States.PerfSampleDuration.value
+		end
+		local perfInstanced = Iris.Checkbox(
+			{ "PerfBench instanced projectiles" },
+			{ isChecked = States.PerfInstanced }
+		)
+		if perfInstanced.checked() or perfInstanced.unchecked() then
+			PerfBenchSettings.Instanced = States.PerfInstanced.value
+		end
+		for _, toggle in {
+			{ label = "PerFrame simulation", state = States.PerfPerFrame, key = "IncludePerFrame" },
+			{ label = "Fixed simulation", state = States.PerfFixed, key = "IncludeFixed" },
+			{ label = "Movement enabled case", state = States.PerfMovementEnabled, key = "IncludeMovementEnabled" },
+			{ label = "Movement disabled case", state = States.PerfMovementDisabled, key = "IncludeMovementDisabled" },
+		} do
+			local checkbox = Iris.Checkbox({ "PerfBench " .. toggle.label }, { isChecked = toggle.state })
+			if checkbox.checked() or checkbox.unchecked() then
+				PerfBenchSettings[toggle.key] = toggle.state.value
+			end
+		end
+		Iris.Text({ "These options affect only PerfBench; it runs Raycast cases, separate from the selected-cast Benchmark." })
 		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
 		if Reports.PerfBench.error then
 			Iris.Text({ "PerfBench error: " .. Reports.PerfBench.error })
