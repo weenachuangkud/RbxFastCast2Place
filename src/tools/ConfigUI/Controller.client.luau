@@ -43,6 +43,11 @@ local States = {
 	AccelerationY = Iris.State(Wrapper.Behavior.Acceleration.Y),
 	VisualizeCasts = Iris.State(Wrapper.Behavior.VisualizeCasts),
 	AutoIgnoreContainer = Iris.State(Wrapper.Behavior.AutoIgnoreContainer),
+	UISectionModuleConfig = Iris.State(true),
+	UISectionBenchmark = Iris.State(true),
+	UISectionPerfBench = Iris.State(false),
+	UISectionUnitTests = Iris.State(false),
+	UISectionRuntime = Iris.State(true),
 }
 
 local function RequestMode(mode: "Serial" | "Parallel")
@@ -155,8 +160,9 @@ local function SyncServerModuleConfig(target: "Serial" | "Parallel", config)
 end
 
 local function RenderLibraryConfig()
-	Iris.SeparatorText({ "FastCast2 module Config" })
-	Iris.Text({ "Edit the module Config for this client and sync SimulationMode / fixed frequency to the server." })
+	local section = Iris.Tree({ "FastCast2 module Config" }, { isUncollapsed = States.UISectionModuleConfig })
+	if section.state.isUncollapsed.value then
+		Iris.Text({ "Edit the module Config for this client and sync SimulationMode / fixed frequency to the server." })
 	local function LoadConfigStates(target: "Serial" | "Parallel")
 		local config = if target == "Parallel" then ParallelConfig else SerialConfig
 		States.ConfigSimulationMode:set(config.SimulationMode)
@@ -250,7 +256,9 @@ local function RenderLibraryConfig()
 			config.DebugLogging[entry.key] = entry.state.value
 		end
 	end
-	Iris.Text({ "Config edits are local to this client. The server has its own Config module instance." })
+		Iris.Text({ "Config edits are local to this client. SimulationMode and fixed frequency are synced to the server." })
+	end
+	Iris.End()
 end
 
 local function RenderCosmeticSettings()
@@ -317,7 +325,9 @@ local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
 		RenderLibraryConfig()
-		Iris.SeparatorText({ "FastCast2 Benchmark" })
+
+		local benchmarkSection = Iris.Tree({ "Benchmark settings & results" }, { isUncollapsed = States.UISectionBenchmark })
+		if benchmarkSection.state.isUncollapsed.value then
 		local projectileCount = Iris.InputNum(
 			{ "Projectile count" },
 			{ number = States.ProjectileCount }
@@ -392,7 +402,11 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.SeparatorText({ "FastCast2 PerfBench" })
+		end
+		Iris.End()
+
+		local perfBenchSection = Iris.Tree({ "PerfBench settings & results" }, { isUncollapsed = States.UISectionPerfBench })
+		if perfBenchSection.state.isUncollapsed.value then
 		local perfProjectileCount = Iris.InputNum(
 			{ "PerfBench projectile count" },
 			{ number = States.PerfProjectileCount }
@@ -466,7 +480,11 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.SeparatorText({ "FastCast2 Unit Tests" })
+		end
+		Iris.End()
+
+		local unitTestsSection = Iris.Tree({ "Unit test results" }, { isUncollapsed = States.UISectionUnitTests })
+		if unitTestsSection.state.isUncollapsed.value then
 		Iris.Text({ "Unit test status: " .. Reports.UnitTest.status })
 		for _, result in Reports.UnitTest.modes do
 			Iris.Text({
@@ -480,6 +498,11 @@ local function RenderConfig()
 			Iris.Text({ "Unit test error: " .. Reports.UnitTest.error })
 		end
 
+		end
+		Iris.End()
+
+		local runtimeSection = Iris.Tree({ "Runtime status & firing controls" }, { isUncollapsed = States.UISectionRuntime })
+		if runtimeSection.state.isUncollapsed.value then
 		Iris.Text({ "Wrapper state: " .. Wrapper.State })
 		Iris.Text({ "Settings apply to future casts." })
 		Iris.SeparatorText({ "Fire context" })
@@ -590,6 +613,8 @@ local function RenderConfig()
 			RenderCosmeticSettings()
 		end
 
+		end
+		Iris.End()
 		Wrapper:SyncConfiguration()
 	end
 	Iris.End()
