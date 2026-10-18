@@ -541,6 +541,7 @@ local function RenderConfig()
 				if velocity.numberChanged() then
 					Wrapper.Settings.Velocity = States.Velocity.value
 				end
+				Iris.Text({ "Used by runtime firing and the regular Benchmark tool. PerfBench is unchanged." })
 
 				for _, castType in { "Raycast", "Blockcast", "Spherecast" } do
 					if Iris.Button({ castType }).clicked() then
