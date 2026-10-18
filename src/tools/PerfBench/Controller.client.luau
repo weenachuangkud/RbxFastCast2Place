@@ -31,7 +31,7 @@ local function runPerfBench()
 	task.spawn(function()
 		local ok, resultsOrError = pcall(function()
 			local PerfBench = require(script.Parent:WaitForChild("PerfBenchRunner"))
-			return PerfBench.run({
+			local options = {
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				maxProjectileCount = Settings.MaxProjectileCount,
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
@@ -42,7 +42,21 @@ local function runPerfBench()
 				includeFixed = Settings.IncludeFixed,
 				includeMovementEnabled = Settings.IncludeMovementEnabled,
 				includeMovementDisabled = Settings.IncludeMovementDisabled,
-			})
+			}
+			local results = PerfBench.run(options)
+			local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote")
+			local serverResponse = remote:InvokeServer("PerfBench", options)
+			if serverResponse and serverResponse.results then
+				for _, result in serverResponse.results do
+					table.insert(results, result)
+				end
+			elseif serverResponse and serverResponse.error then
+				table.insert(results, { side = "Server", error = serverResponse.error })
+			end
+			for _, result in results do
+				result.side = result.side or "Client"
+			end
+			return results
 		end)
 
 		if ok then
