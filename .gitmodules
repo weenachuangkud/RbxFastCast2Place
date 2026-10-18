@@ -1,0 +1,6 @@
+[submodule "vendor/FastCast2Serial"]
+	path = vendor/FastCast2Serial
+	url = https://github.com/weenachuangkud/FastCast2.git
+[submodule "vendor/FastCast2Parallel"]
+	path = vendor/FastCast2Parallel
+	url = https://github.com/weenachuangkud/FastCast2Parallel.git

@@ -1,46 +1,77 @@
 # RbxFastCast2Place
 
-A Roblox Studio place for testing, debugging, and benchmarking [FastCast2](https://github.com/weenachuangkud/FastCast2).
+A Roblox Studio development place for testing, debugging, and benchmarking the refactored FastCast2 implementations.
 
-The place is intended to make it easy to change cast behavior and configuration while testing. The debug UI is part of the development workflow; use a separate console-only run when measuring FastCast2 without UI overhead.
+## FastCast2 source
+
+This project uses two source repositories directly as pinned Git submodules:
+
+- `vendor/FastCast2Serial` — [FastCast2](https://github.com/weenachuangkud/FastCast2), branch `weenachuangkud-refactor`, pinned to the source commit recorded in the submodule.
+- `vendor/FastCast2Parallel` — [FastCast2Parallel](https://github.com/weenachuangkud/FastCast2Parallel), branch `main`, pinned to the source commit recorded in the submodule.
+
+These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. Wally provides Iris and ByteNet; Rojo maps both FastCast2 source repositories directly under `ReplicatedStorage`.
+
+After cloning, initialize the submodules:
+
+```powershell
+git submodule update --init --recursive
+```
+
+To update a dependency deliberately, enter its submodule, check out the intended branch/commit, and commit the changed submodule pointer in this repository.
+
+## Architecture
+
+- `src/shared/FastCast2Wrapper.luau` is the bridge for one caster per Luau context.
+- The Serial and Parallel modules are separate implementations with separate shared runtimes.
+- Both use the refactor API: initialize the library runtime with `FastCast2.Init(...)`, then create a caster with `FastCast2.new()`.
+- Client and server contexts have independent wrapper state. ByteNet synchronizes shared cast settings and relays fire requests to the server.
+- StarterPack tools share the wrapper instead of creating their own casters.
+
+The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI; resizing requires an idle Parallel runtime and leaves the wrapper unavailable for six seconds.
+
+## Tools
+
+- **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, projectile cosmetics, and benchmark options. It also displays the latest benchmark and unit-test results locally, without requiring server logs.
+- **BasicFire** — fire a projectile from the local character's head toward the mouse target.
+- **Benchmark** — click to benchmark the currently selected cast type in the selected Serial or Parallel mode, using the wrapper’s current movement, cosmetic, velocity, fidelity, and Actor-count settings.
+- **PerfBench** — click separately to run the selected Serial or Parallel implementation through the configured Raycast PerFrame/Fixed cases. Its count, sample duration, instancing, simulation modes, and movement cases are configured independently in ConfigUI.
+- **UnitTest** — click to run the upstream functional tests for both Serial and Parallel. Benchmark, PerfBench, and UnitTest initialize FastCast2 on demand if ConfigUI has not been equipped yet.
+
+Configure options in ConfigUI, run Benchmark, PerfBench, or UnitTest, then equip ConfigUI again to inspect the latest client-side report.
+
+## Projectile cosmetics
+
+Place projectile `.rbxmx` assets in the repository's `projectiles/` folder. Rojo syncs that folder to `ReplicatedStorage.Projectiles`. Each selectable projectile must be a `BasePart` directly inside that folder.
+
+In ConfigUI:
+- **Instanced** creates a cloned cosmetic part for each cast.
+- Select a projectile in `Projectiles` to use it as the cosmetic template.
+- If no projectile is selected or the folder has no valid projectile, Instanced mode uses a default `1×1×1` part.
+- **Instanceless** sets `CosmeticBulletTemplate = nil`, so casts are simulated without a cosmetic projectile instance.
 
 ## Toolchain
 
-This project pins its development tools in `rokit.toml`:
-
-- **Rokit** manages project tool versions.
-- **Rojo** syncs source files with Roblox Studio and builds the place.
-- **Wally** installs FastCast2 and the ImGui debug UI.
-
-## Setup
-
-Install Rokit using the instructions in the [Rokit README](https://github.com/rojo-rbx/rokit), then run these commands from the repository root:
+Install Rokit, then run from the repository root:
 
 ```powershell
 rokit install
+git submodule update --init --recursive
 wally install
 rojo plugin install
 rojo serve
 ```
 
-Open the place in Roblox Studio, then connect the Rojo plugin to the running server.
+Open Roblox Studio and connect the Rojo plugin.
 
-To build a place file instead:
+To build a place file:
 
 ```powershell
 rojo build default.project.json -o RbxFastCast2Place.rbxlx
 ```
 
-## Packages
+## Notes
 
-Dependencies are declared in `wally.toml` and locked in `wally.lock`. Do not edit the lockfile manually; regenerate it with `wally install` after changing dependencies.
-
-- FastCast2 is the projectile implementation under test.
-- ImGui is the immediate-mode debug UI used to inspect and modify benchmark settings.
-
-## Benchmarking notes
-
-- Keep the UI available for interactive tests and tuning.
-- Record whether a benchmark run includes the debug UI.
-- For clean performance comparisons, run equivalent scenarios with the UI disabled and avoid changing multiple settings between runs.
-- Compare serial and parallel behavior using the same projectile count, cast configuration, and duration.
+- ConfigUI changes are sent through ByteNet when values change. The server clamps accepted values and remains responsible for authoritative hit detection; client firing is prediction only.
+- Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
+- Benchmark controls are available in ConfigUI. The Benchmark, PerfBench, and UnitTest tools show result summaries in ConfigUI as well as emitting diagnostic output to the client console. PerfBench temporarily switches the selected runtime between PerFrame and Fixed and restores its original mode afterward.
+- This change has not been run in Roblox Studio yet.
