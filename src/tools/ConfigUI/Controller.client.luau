@@ -3,13 +3,16 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Tool = script.Parent :: Tool
 local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
 local Iris = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("IrisClient"))
+local BenchmarkSettings = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2BenchmarkSettings"))
+local Reports = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2ToolReports"))
 
 local Equipped = false
 local ModeSwitching = false
 
 local States = {
-	ProjectileCount = Iris.State(100),
-	SimulationMode = Iris.State("PerFrame"),
+	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
+	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
+	IncludePerfBench = Iris.State(BenchmarkSettings.IncludePerfBench),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
 	BlockcastSize = Iris.State(Wrapper.Settings.BlockcastSize.X),
 	SpherecastRadius = Iris.State(Wrapper.Settings.SpherecastRadius),
@@ -108,7 +111,24 @@ local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
 		Iris.SeparatorText({ "FastCast2 Benchmark" })
-		Iris.SliderNum({ "Projectile count", 1, 1, 5000 }, { number = States.ProjectileCount })
+		local projectileCount = Iris.SliderNum({ "Projectile count", 1, 1, 5000 }, { number = States.ProjectileCount })
+		if projectileCount.numberChanged() then
+			BenchmarkSettings.ProjectileCount = math.floor(States.ProjectileCount.value)
+		end
+		local sampleDuration = Iris.SliderNum(
+			{ "Sample duration (seconds)", 1, 1, 10 },
+			{ number = States.SampleDuration }
+		)
+		if sampleDuration.numberChanged() then
+			BenchmarkSettings.SampleDuration = States.SampleDuration.value
+		end
+		local includePerfBench = Iris.Checkbox(
+			{ "Include PerFrame / Fixed perfbench stress matrix" },
+			{ isChecked = States.IncludePerfBench }
+		)
+		if includePerfBench.checked() or includePerfBench.unchecked() then
+			BenchmarkSettings.IncludePerfBench = States.IncludePerfBench.value
+		end
 
 		Iris.Text({ "Cast mode: " .. Wrapper.Settings.Mode })
 		for _, mode in { "Serial", "Parallel" } do
@@ -117,14 +137,59 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.Text({ "Simulation mode: " .. States.SimulationMode.value })
-		for _, mode in { "PerFrame", "Fixed" } do
-			if Iris.Button({ mode }).clicked() then
-				States.SimulationMode:set(mode)
+		Iris.Text({ "Click the Benchmark tool to run the Serial and Parallel cast-type matrix." })
+		Iris.Text({ "Benchmark status: " .. Reports.Benchmark.status })
+		if Reports.Benchmark.error then
+			Iris.Text({ "Benchmark error: " .. Reports.Benchmark.error })
+		end
+		for _, result in Reports.Benchmark.results do
+			Iris.Text({ string.format(
+				"%s / %s | create %.2f ms | avg %.2f ms | p95 %.2f ms | p99 %.2f ms | cleanup %.2f ms",
+				result.mode,
+				result.castType,
+				result.creationMs,
+				result.averageFrameMs,
+				result.p95FrameMs,
+				result.p99FrameMs,
+				result.cleanupMs
+			) })
+		end
+		Iris.Text({ "PerfBench: " .. (BenchmarkSettings.IncludePerfBench and "included" or "not selected") })
+		if #Reports.Benchmark.perfResults > 0 then
+			Iris.Text({ "Per-frame / fixed-step stress benchmark (instancing and movement toggled):" })
+		end
+		for _, result in Reports.Benchmark.perfResults do
+			if result.error then
+				Iris.Text({ string.format("%s / %s: %s", result.mode or "PerfBench", result.simulationMode or "", result.error) })
+			else
+				Iris.Text({ string.format(
+					"%s / %s | instanced=%s | movement=%s | create %.2f ms | avg %.2f | p95 %.2f | p99 %.2f | cleanup %.2f",
+					result.mode,
+					result.simulationMode,
+					tostring(result.instanced),
+					tostring(result.movement),
+					result.creationMs,
+					result.averageFrameMs,
+					result.p95FrameMs,
+					result.p99FrameMs,
+					result.cleanupMs
+				) })
 			end
 		end
-		Iris.Text({ "Runner: not connected yet" })
-		Iris.Text({ string.format("Count: %d", States.ProjectileCount.value) })
+
+		Iris.SeparatorText({ "FastCast2 Unit Tests" })
+		Iris.Text({ "Unit test status: " .. Reports.UnitTest.status })
+		for _, result in Reports.UnitTest.modes do
+			Iris.Text({
+				string.format("%s: %d passed / %d, %d failed", result.mode, result.passed, result.total, result.failed),
+			})
+		end
+		for _, failure in Reports.UnitTest.failures do
+			Iris.Text({ string.format("FAIL %s / %s: %s", failure.mode, failure.name, failure.error) })
+		end
+		if Reports.UnitTest.error then
+			Iris.Text({ "Unit test error: " .. Reports.UnitTest.error })
+		end
 
 		Iris.Text({ "Wrapper state: " .. Wrapper.State })
 		Iris.Text({ "Settings apply to future casts." })

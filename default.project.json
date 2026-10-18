@@ -12,6 +12,21 @@
       "FastCast2Parallel": {
         "$path": "vendor/FastCast2Parallel/src"
       },
+      "FastCast2": {
+        "$path": "src/shared/FastCast2TestAdapter"
+      },
+      "FastCast2SerialTests": {
+        "$path": "vendor/FastCast2Serial/tests/src"
+      },
+      "FastCast2ParallelTests": {
+        "$path": "vendor/FastCast2Parallel/tests/src"
+      },
+      "FastCast2SerialBenchmarks": {
+        "$path": "vendor/FastCast2Serial/tests/src/Benchmarks.luau"
+      },
+      "FastCast2ParallelBenchmarks": {
+        "$path": "vendor/FastCast2Parallel/tests/src/Benchmarks.luau"
+      },
       "Projectiles": {
         "$path": "projectiles"
       },
@@ -43,12 +58,21 @@
         },
         "$path": "src/tools/ConfigUI"
       },
+      "Benchmark": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Run Serial and Parallel FastCast2 benchmarks"
+        },
+        "$path": "src/tools/Benchmark"
+      },
       "UnitTest": {
         "$className": "Tool",
         "$properties": {
           "RequiresHandle": false,
           "CanBeDropped": false,
-          "ToolTip": "Run FastCast2 test scenarios"
+          "ToolTip": "Run Serial and Parallel FastCast2 functional tests"
         },
         "$path": "src/tools/UnitTest"
       }

@@ -3,6 +3,6 @@
   "$properties": {
     "RequiresHandle": false,
     "CanBeDropped": false,
-    "ToolTip": "Run FastCast2 test scenarios"
+    "ToolTip": "Run Serial and Parallel FastCast2 functional tests"
   }
 }

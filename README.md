@@ -31,9 +31,12 @@ The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and
 
 ## Tools
 
-- **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, projectile cosmetics, and benchmark options.
+- **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, projectile cosmetics, and benchmark options. It also displays the latest benchmark and unit-test results locally, without requiring server logs.
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
-- **UnitTest** — currently a tool entry point; porting the serial and parallel automated suites is still future work.
+- **Benchmark** — click to run the upstream Serial and Parallel Raycast/Blockcast/Spherecast matrix. Optionally include the `perfbench/` per-frame vs fixed-step stress matrix with instancing and movement toggles. Set projectile count, sample duration, and whether to include PerfBench in ConfigUI.
+- **UnitTest** — click to run the upstream functional tests for both Serial and Parallel. Both tools initialize FastCast2 on demand if ConfigUI has not been equipped yet.
+
+Configure options in ConfigUI, run Benchmark or UnitTest, then equip ConfigUI again to inspect the latest client-side report.
 
 ## Projectile cosmetics
 
@@ -69,5 +72,5 @@ rojo build default.project.json -o RbxFastCast2Place.rbxlx
 
 - ConfigUI changes are sent through ByteNet when values change. The server clamps accepted values and remains responsible for authoritative hit detection; client firing is prediction only.
 - Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
-- Benchmark controls are available in ConfigUI; the benchmark runner and result collection still need implementation. Runs should use identical workloads/configuration across Serial and Parallel.
+- Benchmark controls are available in ConfigUI. The Benchmark and UnitTest tools show result summaries in ConfigUI as well as emitting diagnostic output to the client console. The Benchmark tool runs both upstream benchmark approaches; perfbench temporarily switches each runtime between PerFrame and Fixed and restores the original modes afterward.
 - This change has not been run in Roblox Studio yet.
