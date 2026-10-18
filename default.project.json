@@ -32,7 +32,34 @@
       }
     },
     "StarterPack": {
-      "$path": "src/tools"
+      "BasicFire": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false
+        },
+        "$path": "src/tools/BasicFire"
+      },
+      "Benchmark": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false
+        },
+        "$path": "src/tools/Benchmark"
+      },
+      "ConfigUI": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false
+        },
+        "$path": "src/tools/ConfigUI"
+      },
+      "UnitTest": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false
+        },
+        "$path": "src/tools/UnitTest"
+      }
     }
   }
 }
