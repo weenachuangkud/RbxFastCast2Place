@@ -1,4 +1,3 @@
---!strict
 -- Server-authoritative FastCast2 networking for the test place.
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
