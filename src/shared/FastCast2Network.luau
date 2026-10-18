@@ -1,4 +1,3 @@
---!strict
 -- Shared ByteNet packet definitions. Require on both client and server.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ByteNet = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("ByteNet"))
