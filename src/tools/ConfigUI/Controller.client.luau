@@ -311,7 +311,7 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.Text({ "Benchmark and PerfBench use the selected Serial / Parallel mode. Benchmark runs the selected cast type; PerfBench runs the configured PerFrame / Fixed cases." })
+		Iris.Text({ "Benchmark follows the selected fire context (Client / Server / Both). PerfBench always runs on the server and uses the server's current FastCast2 module Config." })
 		local workerCount = Iris.InputNum(
 			{ "Parallel Actor count" },
 			{ number = States.WorkerCount }
@@ -395,7 +395,7 @@ local function RenderConfig()
 				PerfBenchSettings[toggle.key] = toggle.state.value
 			end
 		end
-		Iris.Text({ "PerfBench runs on the server only and uses the selected FastCast2 module Config's actual SimulationMode. Change PerFrame / Fixed above under FastCast2 module Config." })
+		Iris.Text({ "PerfBench runs on the server only and reads the server's own FastCast2 Config. The Config editor above edits this client's Config; server-side PerFrame / Fixed changes currently require changing the server Config instance." })
 		Iris.SeparatorText({ "Latest PerfBench Results" })
 		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
 		if Reports.PerfBench.error then
