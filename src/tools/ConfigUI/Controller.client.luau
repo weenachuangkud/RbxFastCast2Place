@@ -29,6 +29,8 @@ local States = {
 	DebugCalculation = Iris.State(SerialConfig.DebugLogging.Calculation),
 	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
 	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
+	BenchmarkVelocity = Iris.State(BenchmarkSettings.Velocity),
+	BenchmarkAccelerationY = Iris.State(BenchmarkSettings.AccelerationY),
 	WorkerCount = Iris.State(Wrapper.Settings.WorkerCount),
 	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
 	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
@@ -350,6 +352,21 @@ local function RenderConfig()
 			if sampleDuration.numberChanged() then
 				BenchmarkSettings.SampleDuration = States.SampleDuration.value
 			end
+			local benchmarkVelocity = Iris.SliderNum(
+				{ "Benchmark velocity", 50, 1, 5000 },
+				{ number = States.BenchmarkVelocity }
+			)
+			if benchmarkVelocity.numberChanged() then
+				BenchmarkSettings.Velocity = States.BenchmarkVelocity.value
+			end
+			local benchmarkAcceleration = Iris.SliderNum(
+				{ "Benchmark acceleration Y", 10, -500, 500 },
+				{ number = States.BenchmarkAccelerationY }
+			)
+			if benchmarkAcceleration.numberChanged() then
+				BenchmarkSettings.AccelerationY = States.BenchmarkAccelerationY.value
+			end
+			Iris.Text({ "These motion settings apply only to the regular Benchmark. Runtime firing controls are independent; PerfBench is unchanged." })
 			Iris.Text({ "Cast mode: " .. Wrapper.Settings.Mode })
 			for _, mode in { "Serial", "Parallel" } do
 				if Iris.Button({ mode }).clicked() then
