@@ -33,8 +33,6 @@ local States = {
 	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
 	PerfSampleDuration = Iris.State(PerfBenchSettings.SampleDuration),
 	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
-	PerfPerFrame = Iris.State(PerfBenchSettings.IncludePerFrame),
-	PerfFixed = Iris.State(PerfBenchSettings.IncludeFixed),
 	PerfMovementEnabled = Iris.State(PerfBenchSettings.IncludeMovementEnabled),
 	PerfMovementDisabled = Iris.State(PerfBenchSettings.IncludeMovementDisabled),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
@@ -335,7 +333,7 @@ local function RenderConfig()
 				Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode or "Benchmark", result.castType or "") })
 				Iris.Text({ "Error: " .. result.error })
 			else
-				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.castType) })
+				Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode, result.castType) })
 				Iris.Text({ string.format(
 					"Casts: %d fired | %d remaining at cleanup",
 					result.firedCasts or 0,
@@ -355,7 +353,7 @@ local function RenderConfig()
 					result.p95FrameMs,
 					result.p99FrameMs
 				) })
-				Iris.Text({ string.format("Create: %.2f ms | cleanup: %.2f ms", result.creationMs, result.cleanupMs) })
+				Iris.Text({ string.format("Create: %.2f ms (%.0f casts/s) | cleanup: %.2f ms (%.0f casts/s)", result.creationMs, result.creationProjectilesPerSecond or 0, result.cleanupMs, result.cleanupProjectilesPerSecond or 0) })
 			end
 		end
 
@@ -389,8 +387,6 @@ local function RenderConfig()
 			PerfBenchSettings.Instanced = States.PerfInstanced.value
 		end
 		for _, toggle in {
-			{ label = "PerFrame simulation", state = States.PerfPerFrame, key = "IncludePerFrame" },
-			{ label = "Fixed simulation", state = States.PerfFixed, key = "IncludeFixed" },
 			{ label = "Movement enabled case", state = States.PerfMovementEnabled, key = "IncludeMovementEnabled" },
 			{ label = "Movement disabled case", state = States.PerfMovementDisabled, key = "IncludeMovementDisabled" },
 		} do
@@ -399,14 +395,14 @@ local function RenderConfig()
 				PerfBenchSettings[toggle.key] = toggle.state.value
 			end
 		end
-		Iris.Text({ "These options affect only PerfBench; it runs Raycast cases, separate from the selected-cast Benchmark." })
+		Iris.Text({ "PerfBench runs on the server only and uses the selected FastCast2 module Config's actual SimulationMode. Change PerFrame / Fixed above under FastCast2 module Config." })
 		Iris.SeparatorText({ "Latest PerfBench Results" })
 		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
 		if Reports.PerfBench.error then
 			Iris.Text({ "PerfBench error: " .. Reports.PerfBench.error })
 		end
 		if #Reports.PerfBench.results > 0 then
-			Iris.Text({ "Per-frame / fixed-step stress benchmark (instancing and movement toggled):" })
+			Iris.Text({ "Server Heartbeat stress benchmark using the current FastCast2 Config (instancing and movement toggled):" })
 		end
 		for _, result in Reports.PerfBench.results do
 			if result.error then
@@ -431,7 +427,7 @@ local function RenderConfig()
 					result.p95FrameMs,
 					result.p99FrameMs
 				) })
-				Iris.Text({ string.format("Create: %.2f ms | cleanup: %.2f ms", result.creationMs, result.cleanupMs) })
+				Iris.Text({ string.format("Create: %.2f ms (%.0f casts/s) | cleanup: %.2f ms (%.0f casts/s)", result.creationMs, result.creationProjectilesPerSecond or 0, result.cleanupMs, result.cleanupProjectilesPerSecond or 0) })
 			end
 		end
 
