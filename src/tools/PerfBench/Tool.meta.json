@@ -1,8 +1,0 @@
-{
-  "className": "Tool",
-  "properties": {
-    "RequiresHandle": false,
-    "CanBeDropped": false,
-    "ToolTip": "Run the PerFrame / Fixed stress benchmark"
-  }
-}
