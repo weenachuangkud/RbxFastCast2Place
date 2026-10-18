@@ -12,7 +12,6 @@ local ModeSwitching = false
 local States = {
 	ProjectileCount = Iris.State(BenchmarkSettings.ProjectileCount),
 	SampleDuration = Iris.State(BenchmarkSettings.SampleDuration),
-	IncludePerfBench = Iris.State(BenchmarkSettings.IncludePerfBench),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
 	BlockcastSize = Iris.State(Wrapper.Settings.BlockcastSize.X),
 	SpherecastRadius = Iris.State(Wrapper.Settings.SpherecastRadius),
@@ -122,14 +121,6 @@ local function RenderConfig()
 		if sampleDuration.numberChanged() then
 			BenchmarkSettings.SampleDuration = States.SampleDuration.value
 		end
-		local includePerfBench = Iris.Checkbox(
-			{ "Include PerFrame / Fixed perfbench stress matrix" },
-			{ isChecked = States.IncludePerfBench }
-		)
-		if includePerfBench.checked() or includePerfBench.unchecked() then
-			BenchmarkSettings.IncludePerfBench = States.IncludePerfBench.value
-		end
-
 		Iris.Text({ "Cast mode: " .. Wrapper.Settings.Mode })
 		for _, mode in { "Serial", "Parallel" } do
 			if Iris.Button({ mode }).clicked() then
@@ -137,7 +128,7 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.Text({ "Click the Benchmark tool to run the Serial and Parallel cast-type matrix." })
+		Iris.Text({ "Use Benchmark for the cast-type suite, or PerfBench for the separate PerFrame / Fixed stress matrix." })
 		Iris.Text({ "Benchmark status: " .. Reports.Benchmark.status })
 		if Reports.Benchmark.error then
 			Iris.Text({ "Benchmark error: " .. Reports.Benchmark.error })
@@ -154,11 +145,16 @@ local function RenderConfig()
 				result.cleanupMs
 			) })
 		end
-		Iris.Text({ "PerfBench: " .. (BenchmarkSettings.IncludePerfBench and "included" or "not selected") })
-		if #Reports.Benchmark.perfResults > 0 then
+
+		Iris.SeparatorText({ "FastCast2 PerfBench" })
+		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
+		if Reports.PerfBench.error then
+			Iris.Text({ "PerfBench error: " .. Reports.PerfBench.error })
+		end
+		if #Reports.PerfBench.results > 0 then
 			Iris.Text({ "Per-frame / fixed-step stress benchmark (instancing and movement toggled):" })
 		end
-		for _, result in Reports.Benchmark.perfResults do
+		for _, result in Reports.PerfBench.results do
 			if result.error then
 				Iris.Text({ string.format("%s / %s: %s", result.mode or "PerfBench", result.simulationMode or "", result.error) })
 			else

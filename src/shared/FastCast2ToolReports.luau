@@ -2,7 +2,11 @@ return {
 	Benchmark = {
 		status = "Not run",
 		results = {},
-		perfResults = {},
+		error = nil,
+	},
+	PerfBench = {
+		status = "Not run",
+		results = {},
 		error = nil,
 	},
 	UnitTest = {

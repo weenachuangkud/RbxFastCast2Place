@@ -16,6 +16,10 @@ local function runBenchmark()
 		warn("[FastCast2 Benchmark] Wait for the unit test run to finish first.")
 		return
 	end
+	if Reports.PerfBench.status == "Running" then
+		warn("[FastCast2 Benchmark] Wait for the PerfBench run to finish first.")
+		return
+	end
 	local initialized, initializeError = pcall(function()
 		Wrapper:Initialize()
 	end)
@@ -23,7 +27,6 @@ local function runBenchmark()
 		Reports.Benchmark = {
 			status = "Failed",
 			results = {},
-			perfResults = {},
 			error = tostring(initializeError),
 		}
 		warn("[FastCast2 Benchmark] Could not initialize FastCast2:", initializeError)
@@ -31,7 +34,7 @@ local function runBenchmark()
 	end
 
 	IsRunning = true
-	Reports.Benchmark = { status = "Running", results = {}, perfResults = {}, error = nil }
+	Reports.Benchmark = { status = "Running", results = {}, error = nil }
 	task.spawn(function()
 		local ok, resultOrError = pcall(function()
 			local allResults = {}
@@ -51,31 +54,17 @@ local function runBenchmark()
 				end
 			end
 
-			local perfResults = {}
-			if Settings.IncludePerfBench then
-				local PerfBench = require(script.Parent:WaitForChild("PerfBenchRunner"))
-				perfResults = PerfBench.run({
-					projectileCount = overrides.projectileCount,
-					sampleDuration = overrides.sampleDuration,
-					workerCount = overrides.parallelWorkers,
-					movementMode = Wrapper.Settings.MovementMode,
-				})
-			end
-			return { benchmarks = allResults, perfResults = perfResults }
+			return allResults
 		end)
 
 		if ok then
 			local failedCase = false
-			for _, result in resultOrError.benchmarks do
-				failedCase = failedCase or result.error ~= nil
-			end
-			for _, result in resultOrError.perfResults do
+			for _, result in resultOrError do
 				failedCase = failedCase or result.error ~= nil
 			end
 			Reports.Benchmark = {
 				status = if failedCase then "Failed" else "Complete",
-				results = resultOrError.benchmarks,
-				perfResults = resultOrError.perfResults,
+				results = resultOrError,
 				error = nil,
 			}
 			print("[FastCast2 Benchmark] Complete. See ConfigUI for the results table.")
@@ -83,7 +72,6 @@ local function runBenchmark()
 			Reports.Benchmark = {
 				status = "Failed",
 				results = {},
-				perfResults = {},
 				error = tostring(resultOrError),
 			}
 			warn("[FastCast2 Benchmark] Run failed:", resultOrError)

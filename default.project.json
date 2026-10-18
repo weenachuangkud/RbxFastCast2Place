@@ -67,6 +67,15 @@
         },
         "$path": "src/tools/Benchmark"
       },
+      "PerfBench": {
+        "$className": "Tool",
+        "$properties": {
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Run the PerFrame / Fixed stress benchmark"
+        },
+        "$path": "src/tools/PerfBench"
+      },
       "UnitTest": {
         "$className": "Tool",
         "$properties": {
