@@ -1,5 +1,5 @@
 return {
-	ProjectileCount = 8000,
+	ProjectileCount = 6000,
 	MaxProjectileCount = 500000,
 	SampleDuration = 5,
 	Instanced = true,
