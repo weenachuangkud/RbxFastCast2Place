@@ -134,7 +134,9 @@ local function runMode(modeName, options)
 			direction = if direction.Magnitude == 0 then Vector3.xAxis else direction.Unit
 			fire(caster, options.castType, origin, direction, options, behavior)
 		end
-		local creationMs = (os.clock() - creationStarted) * 1000
+		local creationElapsed = os.clock() - creationStarted
+		local creationMs = creationElapsed * 1000
+		local creationProjectilesPerSecond = if creationElapsed > 0 then options.projectileCount / creationElapsed else 0
 
 		-- Let the parallel runtime flush queued fire requests before sampling.
 		task.wait()
@@ -165,6 +167,7 @@ local function runMode(modeName, options)
 			p95FrameMs = frameStats.p95Ms,
 			p99FrameMs = frameStats.p99Ms,
 			creationMs = creationMs,
+			creationProjectilesPerSecond = creationProjectilesPerSecond,
 		}
 	end, debug.traceback)
 
@@ -176,6 +179,7 @@ local function runMode(modeName, options)
 
 	-- Explicitly terminate remaining casts so one mode cannot pollute the next.
 	local cleanupStarted = os.clock()
+	local castsAtCleanupStart = #activeCasts
 	local castsToTerminate = table.clone(activeCasts)
 	for i = #castsToTerminate, 1, -1 do
 		local cast = castsToTerminate[i]
@@ -192,17 +196,22 @@ local function runMode(modeName, options)
 	pcall(function()
 		caster:Destroy()
 	end)
-	local cleanupMs = (os.clock() - cleanupStarted) * 1000
-	if cosmeticTemplate then
-		cosmeticTemplate:Destroy()
-	end
-	container:Destroy()
+	local cleanupElapsed = os.clock() - cleanupStarted
+	local cleanupMs = cleanupElapsed * 1000
+	local cleanupProjectilesPerSecond = if cleanupElapsed > 0 then castsAtCleanupStart / cleanupElapsed else 0
+	if cosmeticTemplate then pcall(function() cosmeticTemplate:Destroy() end) end
+	pcall(function() container:Destroy() end)
 
 	if not ok then
-		return { mode = modeName, castType = options.castType, error = tostring(runError) }
+		return { mode = modeName, castType = options.castType, cleanupMs = cleanupMs,
+			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
+			remainingCastsAtCleanup = #activeCasts, error = tostring(runError) }
 	end
 	result.cleanupMs = cleanupMs
+	result.cleanupCasts = castsAtCleanupStart
+	result.cleanupProjectilesPerSecond = cleanupProjectilesPerSecond
 	result.remainingCastsAtCleanup = #activeCasts
+	if #activeCasts > 0 then result.error = "Cleanup timed out; active casts remain, so results may be contaminated." end
 	return result
 end
 
