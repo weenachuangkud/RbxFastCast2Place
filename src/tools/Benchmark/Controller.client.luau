@@ -38,7 +38,7 @@ local function runBenchmark()
 	task.spawn(function()
 		local ok, resultOrError = pcall(function()
 			local BenchmarkRunner = require(script.Parent:WaitForChild("BenchmarkRunner"))
-			return BenchmarkRunner.run({
+			local options = {
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				mode = Wrapper.Settings.Mode,
@@ -58,7 +58,24 @@ local function runBenchmark()
 					then Wrapper.Behavior.CosmeticBulletTemplate
 					else nil,
 				randomSeed = 2026,
-			})
+			}
+			local results = BenchmarkRunner.run(options)
+			local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote")
+			local serverOptions = table.clone(options)
+			serverOptions.cosmeticTemplate = nil
+			serverOptions.cosmeticMode = Wrapper.Settings.CosmeticMode
+			local serverResponse = remote:InvokeServer("Benchmark", serverOptions)
+			if serverResponse and serverResponse.results then
+				for _, result in serverResponse.results do
+					table.insert(results, result)
+				end
+			elseif serverResponse and serverResponse.error then
+				table.insert(results, { side = "Server", error = serverResponse.error })
+			end
+			for _, result in results do
+				result.side = result.side or "Client"
+			end
+			return results
 		end)
 
 		if ok then
