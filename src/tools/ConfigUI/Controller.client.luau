@@ -293,7 +293,7 @@ local function RenderConfig()
 			States.ProjectileCount:set(count)
 			BenchmarkSettings.ProjectileCount = count
 		end
-		Iris.Text({ string.format("Default: 8,000 | allowed range: 1 to %d.", BenchmarkSettings.MaxProjectileCount) })
+		Iris.Text({ string.format("Default: 500 | allowed range: 1 to %d.", BenchmarkSettings.MaxProjectileCount) })
 		local sampleDuration = Iris.SliderNum(
 			{ "Sample duration (seconds)", 1, 1, 10 },
 			{ number = States.SampleDuration }
@@ -368,7 +368,7 @@ local function RenderConfig()
 			States.PerfProjectileCount:set(count)
 			PerfBenchSettings.ProjectileCount = count
 		end
-		Iris.Text({ string.format("Default: 8,000 | allowed range: 1 to %d.", PerfBenchSettings.MaxProjectileCount) })
+		Iris.Text({ string.format("Default: 6,000 | allowed range: 1 to %d.", PerfBenchSettings.MaxProjectileCount) })
 		local perfSampleDuration = Iris.SliderNum(
 			{ "PerfBench sample duration (seconds)", 5, 1, 10 },
 			{ number = States.PerfSampleDuration }
