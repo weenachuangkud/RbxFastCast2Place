@@ -30,7 +30,6 @@ local function runPerfBench()
 	Reports.PerfBench = { status = "Running", results = {}, error = nil }
 	task.spawn(function()
 		local ok, resultsOrError = pcall(function()
-			local PerfBench = require(script.Parent:WaitForChild("PerfBenchRunner"))
 			local options = {
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				maxProjectileCount = Settings.MaxProjectileCount,
@@ -38,25 +37,17 @@ local function runPerfBench()
 				mode = Wrapper.Settings.Mode,
 				workerCount = Wrapper.Settings.WorkerCount,
 				instanced = Settings.Instanced,
-				includePerFrame = Settings.IncludePerFrame,
-				includeFixed = Settings.IncludeFixed,
 				includeMovementEnabled = Settings.IncludeMovementEnabled,
 				includeMovementDisabled = Settings.IncludeMovementDisabled,
 			}
-			local results = PerfBench.run(options)
-			local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote")
-			local serverResponse = remote:InvokeServer("PerfBench", options)
-			if serverResponse and serverResponse.results then
-				for _, result in serverResponse.results do
-					table.insert(results, result)
-				end
-			elseif serverResponse and serverResponse.error then
-				table.insert(results, { side = "Server", error = serverResponse.error })
+			local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote", 10)
+			if not remote then error("Server benchmark endpoint was not available within 10 seconds.") end
+			local response = remote:InvokeServer("PerfBench", options)
+			if response and response.results then
+				for _, result in response.results do result.side = "Server" end
+				return response.results
 			end
-			for _, result in results do
-				result.side = result.side or "Client"
-			end
-			return results
+			error(if response and response.error then response.error else "Server PerfBench returned no results.")
 		end)
 
 		if ok then
