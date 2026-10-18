@@ -35,28 +35,36 @@
       "BasicFire": {
         "$className": "Tool",
         "$properties": {
-          "RequiresHandle": false
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Fire a FastCast2 projectile toward the mouse"
         },
         "$path": "src/tools/BasicFire"
       },
       "Benchmark": {
         "$className": "Tool",
         "$properties": {
-          "RequiresHandle": false
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Run FastCast2 benchmark scenarios"
         },
         "$path": "src/tools/Benchmark"
       },
       "ConfigUI": {
         "$className": "Tool",
         "$properties": {
-          "RequiresHandle": false
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Edit FastCast2 settings"
         },
         "$path": "src/tools/ConfigUI"
       },
       "UnitTest": {
         "$className": "Tool",
         "$properties": {
-          "RequiresHandle": false
+          "RequiresHandle": false,
+          "CanBeDropped": false,
+          "ToolTip": "Run FastCast2 test scenarios"
         },
         "$path": "src/tools/UnitTest"
       }
