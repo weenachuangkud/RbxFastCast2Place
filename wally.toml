@@ -7,4 +7,4 @@ realm = "shared"
 
 [dependencies]
 ImGui = "4dbug/imgui-luau@0.4.2"
-ByteNet = "ffrostfall/bytenet@0.4.3"
+ByteNet = "ffrostflame/bytenet@0.4.6"
