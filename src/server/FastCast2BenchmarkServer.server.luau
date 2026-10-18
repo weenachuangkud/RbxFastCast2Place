@@ -35,9 +35,12 @@ local function applyModuleConfig(options)
 		return { error = "Invalid SimulationMode." }
 	end
 	local frequencyNames = {
+		Hz1 = Enum.StepFrequency.Hz1,
+		Hz5 = Enum.StepFrequency.Hz5,
+		Hz10 = Enum.StepFrequency.Hz10,
+		Hz15 = Enum.StepFrequency.Hz15,
 		Hz30 = Enum.StepFrequency.Hz30,
 		Hz60 = Enum.StepFrequency.Hz60,
-		Hz120 = Enum.StepFrequency.Hz120,
 	}
 	local frequency = frequencyNames[options.fixedFrequency]
 	if not frequency then
