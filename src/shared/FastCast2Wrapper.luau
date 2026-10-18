@@ -1,4 +1,3 @@
---!strict
 -- One wrapper instance per Luau context (client and server are separate).
 -- Serial and Parallel are separate source modules with separate global runtimes.
 
