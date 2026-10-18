@@ -1,71 +1,46 @@
---!strict
-
 -- Development UI bootstrap.
 -- The actual benchmark runner will be wired to these controls next.
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
+local Iris = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("IrisClient"))
 
-local ImGuiPackage = require(ReplicatedStorage.Packages.ImGui)
-local ImGui = ImGuiPackage.ImGui
-local ImGui_ImplRoblox = ImGuiPackage.ImGui_ImplRoblox
+local projectileCount = Iris.State(100)
+local simulationMode = Iris.State("PerFrame")
+local castMode = Iris.State("Serial")
+local showDemo = Iris.State(false)
 
-ImGui.CreateContext()
-local io = ImGui.GetIO()
-io.ConfigFlags = bit32.bor(io.ConfigFlags, ImGuiPackage.ImGuiConfigFlags.DockingEnable)
-ImGui_ImplRoblox.Init()
+Iris:Connect(function()
+	local window = Iris.Window({ "FastCast2 Benchmark" })
+	if window.state.isOpened.value then
+		Iris.Text({ "Benchmark controls" })
+		Iris.Separator()
 
-local projectileCount = 100
-local simulationMode = "PerFrame"
-local castMode = "Serial"
-local showDemo = false
+		Iris.SliderNum({ "Projectile count", 1, 1, 5000 }, { number = projectileCount })
 
-RunService.Stepped:Connect(function()
-	ImGui_ImplRoblox.NewFrame()
-	ImGui.NewFrame()
-
-	local visible = ImGui.Begin("FastCast2 Benchmark")
-	if visible then
-		ImGui.Text("Benchmark controls")
-		ImGui.Separator()
-
-		projectileCount = ImGui.SliderInt("Projectile count", projectileCount, 1, 5000)
-
-		local serialPressed = ImGui.Button("Serial")
-		if serialPressed then
-			castMode = "Serial"
+		for _, mode in { "Serial", "Parallel" } do
+			if Iris.Button({ mode }).clicked() then
+				castMode:set(mode)
+			end
 		end
-		ImGui.SameLine()
-		local parallelPressed = ImGui.Button("Parallel")
-		if parallelPressed then
-			castMode = "Parallel"
-		end
-		ImGui.Text("Cast mode: %s", castMode)
+		Iris.Text({ "Cast mode: " .. castMode.value })
 
-		local perFramePressed = ImGui.Button("PerFrame")
-		if perFramePressed then
-			simulationMode = "PerFrame"
+		for _, mode in { "PerFrame", "Fixed" } do
+			if Iris.Button({ mode }).clicked() then
+				simulationMode:set(mode)
+			end
 		end
-		ImGui.SameLine()
-		local fixedPressed = ImGui.Button("Fixed")
-		if fixedPressed then
-			simulationMode = "Fixed"
-		end
-		ImGui.Text("Simulation mode: %s", simulationMode)
+		Iris.Text({ "Simulation mode: " .. simulationMode.value })
 
-		local demoPressed = ImGui.Button(if showDemo then "Hide ImGui demo" else "Show ImGui demo")
-		if demoPressed then
-			showDemo = not showDemo
-		end
-		if showDemo then
-			ImGui.ShowDemoWindow()
-		end
+		Iris.Checkbox({ "Show Iris demo" }, { isChecked = showDemo })
 
-		ImGui.Separator()
-		ImGui.Text("Runner: not connected yet")
-		ImGui.Text("Count: %d", projectileCount)
+		Iris.Separator()
+		Iris.Text({ "Runner: not connected yet" })
+		Iris.Text({ string.format("Count: %d", projectileCount.value) })
 	end
-	ImGui.End()
+	Iris.End()
+end)
 
-	ImGui.Render()
-	ImGui_ImplRoblox.RenderDrawData(ImGui.GetDrawData())
+Iris:Connect(function()
+	if showDemo.value then
+		Iris.ShowDemoWindow()
+	end
 end)

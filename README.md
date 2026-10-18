@@ -9,7 +9,7 @@ This project uses two source repositories directly as pinned Git submodules:
 - `vendor/FastCast2Serial` — [FastCast2](https://github.com/weenachuangkud/FastCast2), branch `weenachuangkud-refactor`, pinned to the source commit recorded in the submodule.
 - `vendor/FastCast2Parallel` — [FastCast2Parallel](https://github.com/weenachuangkud/FastCast2Parallel), branch `main`, pinned to the source commit recorded in the submodule.
 
-These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. Wally provides ImGui and ByteNet; Rojo maps both FastCast2 source repositories directly under `ReplicatedStorage`.
+These are **not** the published Wally `weenachuangkud/fastcast2@0.1.4` package. Wally provides Iris and ByteNet; Rojo maps both FastCast2 source repositories directly under `ReplicatedStorage`.
 
 After cloning, initialize the submodules:
 
@@ -31,7 +31,7 @@ The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and
 
 ## Tools
 
-- **ConfigUI** — equip to open Dear ImGui; unequip to stop rendering and shut down the context. It edits wrapper behavior, caster mode, and projectile cosmetics.
+- **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, and projectile cosmetics.
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
 - **Benchmark** — currently a tool entry point; workload and result collection still need implementation.
 - **UnitTest** — currently a tool entry point; porting the serial and parallel automated suites is still future work.
@@ -70,5 +70,5 @@ rojo build default.project.json -o RbxFastCast2Place.rbxlx
 
 - ConfigUI changes are sent through ByteNet when values change. The server clamps accepted values and remains responsible for authoritative hit detection; client firing is prediction only.
 - Parallel `CanPierce` runs in the worker VM and must be supplied through a `FastCastEventsModule`, not a main-thread caster callback.
-- Benchmark runs must use identical workload/configuration across Serial and Parallel. Record whether ImGui is enabled and use UI-disabled runs to isolate FastCast overhead.
+- Benchmark runs must use identical workload/configuration across Serial and Parallel. Record whether Iris is enabled and use UI-disabled runs to isolate FastCast overhead.
 - This change has not been run in Roblox Studio yet.

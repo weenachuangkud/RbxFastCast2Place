@@ -1,24 +1,21 @@
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local RunService = game:GetService("RunService")
 
 local Tool = script.Parent :: Tool
 local Wrapper = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("FastCast2Wrapper"))
-
-local ImGuiPackage = require(ReplicatedStorage:WaitForChild("Packages"):WaitForChild("ImGui"))
-local ImGui = ImGuiPackage.ImGui
-local ImGui_ImplRoblox = ImGuiPackage.ImGui_ImplRoblox
+local Iris = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("IrisClient"))
 
 local Equipped = false
-local ContextCreated = false
-local WindowOpen = true
-local FrameConnection: RBXScriptConnection? = nil
 local ModeSwitching = false
 
-local HIGH_FIDELITY_BEHAVIORS = {
-	{ Name = "Default", Value = 1 },
-	{ Name = "Automatic", Value = 2 },
-	{ Name = "Always", Value = 3 },
+local States = {
+	Velocity = Iris.State(Wrapper.Settings.Velocity),
+	BlockcastSize = Iris.State(Wrapper.Settings.BlockcastSize.X),
+	SpherecastRadius = Iris.State(Wrapper.Settings.SpherecastRadius),
+	MaxDistance = Iris.State(Wrapper.Behavior.MaxDistance),
+	HighFidelitySegmentSize = Iris.State(Wrapper.Behavior.HighFidelitySegmentSize),
+	AccelerationY = Iris.State(Wrapper.Behavior.Acceleration.Y),
+	VisualizeCasts = Iris.State(Wrapper.Behavior.VisualizeCasts),
+	AutoIgnoreContainer = Iris.State(Wrapper.Behavior.AutoIgnoreContainer),
 }
 
 local function RequestMode(mode: "Serial" | "Parallel")
@@ -36,17 +33,19 @@ local function RequestMode(mode: "Serial" | "Parallel")
 		end)
 		if not ok then
 			warn("[FastCast2 ConfigUI] Could not switch mode:", err)
+		else
+			States.MaxDistance:set(Wrapper.Behavior.MaxDistance)
+			States.HighFidelitySegmentSize:set(Wrapper.Behavior.HighFidelitySegmentSize)
+			States.AccelerationY:set(Wrapper.Behavior.Acceleration.Y)
 		end
 		ModeSwitching = false
 	end)
 end
 
 local function RenderCosmeticSettings()
-	ImGui.Separator()
-	ImGui.Text("Cosmetic projectile")
+	Iris.SeparatorText({ "Cosmetic projectile" })
 
-	local cosmeticMode = Wrapper.Settings.CosmeticMode
-	if ImGui.Button("Instanced") then
+	if Iris.Button({ "Instanced" }).clicked() then
 		local ok, err = pcall(function()
 			Wrapper:SetCosmeticMode("Instanced")
 		end)
@@ -54,8 +53,7 @@ local function RenderCosmeticSettings()
 			warn("[FastCast2 ConfigUI] Could not enable instanced cosmetics:", err)
 		end
 	end
-	ImGui.SameLine()
-	if ImGui.Button("Instanceless") then
+	if Iris.Button({ "Instanceless" }).clicked() then
 		local ok, err = pcall(function()
 			Wrapper:SetCosmeticMode("Instanceless")
 		end)
@@ -63,22 +61,18 @@ local function RenderCosmeticSettings()
 			warn("[FastCast2 ConfigUI] Could not disable cosmetic instances:", err)
 		end
 	end
-	ImGui.Text("Mode: " .. cosmeticMode)
+	Iris.Text({ "Mode: " .. Wrapper.Settings.CosmeticMode })
 
-	if cosmeticMode == "Instanced" then
+	if Wrapper.Settings.CosmeticMode == "Instanced" then
 		local folder = ReplicatedStorage:FindFirstChild("Projectiles")
-		ImGui.Text("Projectiles in ReplicatedStorage.Projectiles:")
+		Iris.Text({ "Projectiles in ReplicatedStorage.Projectiles:" })
 
 		if folder then
 			local foundProjectile = false
 			for _, item in folder:GetChildren() do
 				if item:IsA("BasePart") then
 					foundProjectile = true
-					local label = item.Name
-					if Wrapper.Settings.CosmeticProjectileName == item.Name then
-						label ..= " (selected)"
-					end
-					if ImGui.Button(label) then
+					if Iris.Button({ item.Name }).clicked() then
 						local ok, err = pcall(function()
 							Wrapper:SetCosmeticProjectile(item.Name)
 						end)
@@ -88,15 +82,16 @@ local function RenderCosmeticSettings()
 					end
 				end
 			end
+			Iris.Text({ "Selected: " .. (Wrapper.Settings.CosmeticProjectileName or "Default part") })
 
 			if not foundProjectile then
-				ImGui.Text("No BasePart projectiles found; using the default 1x1x1 part.")
+				Iris.Text({ "No BasePart projectiles found; using the default 1x1x1 part." })
 			end
 		else
-			ImGui.Text("Projectiles folder is missing; using the default 1x1x1 part.")
+			Iris.Text({ "Projectiles folder is missing; using the default 1x1x1 part." })
 		end
 
-		if ImGui.Button("Use default 1x1x1 part") then
+		if Iris.Button({ "Use default 1x1x1 part" }).clicked() then
 			local ok, err = pcall(function()
 				Wrapper:SetCosmeticProjectile(nil)
 			end)
@@ -104,42 +99,32 @@ local function RenderCosmeticSettings()
 				warn("[FastCast2 ConfigUI] Could not select default projectile:", err)
 			end
 		end
-
-		ImGui.Text("Selected: " .. (Wrapper.Settings.CosmeticProjectileName or "Default part"))
 	end
 end
 
 local function RenderConfig()
-	ImGui_ImplRoblox.NewFrame()
-	ImGui.NewFrame()
-
-	local isOpen, visible = ImGui.Begin("FastCast2 Config", WindowOpen)
-	WindowOpen = isOpen
-
-	if visible then
-		ImGui.Text("Wrapper state: " .. Wrapper.State)
-		ImGui.Text("Settings apply to future casts.")
-		ImGui.Separator()
-		ImGui.Text("Fire context")
+	local window = Iris.Window({ "FastCast2 Config" })
+	if window.state.isOpened.value then
+		Iris.Text({ "Wrapper state: " .. Wrapper.State })
+		Iris.Text({ "Settings apply to future casts." })
+		Iris.SeparatorText({ "Fire context" })
 		for _, context in { "Client", "Server", "Both" } do
-			if ImGui.Button(context .. (Wrapper.Settings.Context == context and " (selected)" or "")) then
+			if Iris.Button({ context }).clicked() then
 				Wrapper:SetContext(context)
 			end
-			if context ~= "Both" then
-				ImGui.SameLine()
-			end
 		end
-		ImGui.Text(if Wrapper.Settings.Context == "Client"
+		Iris.Text({ "Selected: " .. Wrapper.Settings.Context })
+		Iris.Text({ if Wrapper.Settings.Context == "Client"
 			then "Client: simulate locally only."
 			elseif Wrapper.Settings.Context == "Server"
 			then "Server: request server simulation; render when the server broadcasts."
-			else "Both: predict locally and request authoritative server simulation.")
+			else "Both: predict locally and request authoritative server simulation." })
 
 		if Wrapper.State == "Initializing" then
-			ImGui.Text("Please wait for caster initialization to finish.")
+			Iris.Text({ "Please wait for caster initialization to finish." })
 		elseif Wrapper.State == "Failed" then
-			ImGui.Text("Initialization failed: " .. tostring(Wrapper.ErrorMessage))
-			if ImGui.Button("Retry initialization") then
+			Iris.Text({ "Initialization failed: " .. tostring(Wrapper.ErrorMessage) })
+			if Iris.Button({ "Retry initialization" }).clicked() then
 				task.spawn(function()
 					local ok, err = pcall(function()
 						Wrapper:Initialize()
@@ -150,144 +135,107 @@ local function RenderConfig()
 				end)
 			end
 		elseif Wrapper.State == "Destroyed" then
-			ImGui.Text("The wrapper has been destroyed.")
+			Iris.Text({ "The wrapper has been destroyed." })
 		else
-			if Wrapper.Settings.Mode == "Serial" then
-				ImGui.Text("Current caster: Serial")
-				if ImGui.Button("Switch to Parallel") then
-					RequestMode("Parallel")
-				end
-			else
-				ImGui.Text("Current caster: Parallel")
-				if ImGui.Button("Switch to Serial") then
-					RequestMode("Serial")
-				end
+			Iris.Text({ "Current caster: " .. Wrapper.Settings.Mode })
+			if Iris.Button({ "Switch caster mode" }).clicked() then
+				RequestMode(if Wrapper.Settings.Mode == "Serial" then "Parallel" else "Serial")
 			end
 
-			ImGui.Separator()
-			ImGui.Text("Fire settings")
-			Wrapper.Settings.Velocity = ImGui.SliderFloat(
-				"Velocity",
-				Wrapper.Settings.Velocity,
-				1,
-				5000
-			)
+			Iris.SeparatorText({ "Fire settings" })
+			local velocity = Iris.SliderNum({ "Velocity", 1, 1, 5000 }, { number = States.Velocity })
+			if velocity.numberChanged() then
+				Wrapper.Settings.Velocity = States.Velocity.value
+			end
 
-			if ImGui.Button("Raycast") then
-				Wrapper.Settings.CastType = "Raycast"
+			for _, castType in { "Raycast", "Blockcast", "Spherecast" } do
+				if Iris.Button({ castType }).clicked() then
+					Wrapper.Settings.CastType = castType
+				end
 			end
-			ImGui.SameLine()
-			if ImGui.Button("Blockcast") then
-				Wrapper.Settings.CastType = "Blockcast"
-			end
-			ImGui.SameLine()
-			if ImGui.Button("Spherecast") then
-				Wrapper.Settings.CastType = "Spherecast"
-			end
-			ImGui.Text("Cast type: " .. Wrapper.Settings.CastType)
+			Iris.Text({ "Cast type: " .. Wrapper.Settings.CastType })
 
 			if Wrapper.Settings.CastType == "Blockcast" then
-				local size = Wrapper.Settings.BlockcastSize
-				local uniformSize = ImGui.SliderFloat("Blockcast size", size.X, 0.1, 10)
-				Wrapper.Settings.BlockcastSize = Vector3.new(uniformSize, uniformSize, uniformSize)
+				local size = Iris.SliderNum({ "Blockcast size", 0.1, 0.1, 10 }, { number = States.BlockcastSize })
+				if size.numberChanged() then
+					local uniformSize = States.BlockcastSize.value
+					Wrapper.Settings.BlockcastSize = Vector3.new(uniformSize, uniformSize, uniformSize)
+				end
 			elseif Wrapper.Settings.CastType == "Spherecast" then
-				Wrapper.Settings.SpherecastRadius = ImGui.SliderFloat(
-					"Sphere radius",
-					Wrapper.Settings.SpherecastRadius,
-					0.1,
-					10
+				local radius = Iris.SliderNum({ "Sphere radius", 0.1, 0.1, 10 }, { number = States.SpherecastRadius })
+				if radius.numberChanged() then
+					Wrapper.Settings.SpherecastRadius = States.SpherecastRadius.value
+				end
+			end
+
+			Iris.SeparatorText({ "FastCastBehavior" })
+			local behavior = Wrapper.Behavior
+			local maxDistance = Iris.SliderNum({ "Max distance", 1, 1, 10000 }, { number = States.MaxDistance })
+			if maxDistance.numberChanged() then
+				behavior.MaxDistance = States.MaxDistance.value
+			end
+
+			local highFidelityBehavior = behavior.HighFidelityBehavior
+			local currentBehaviorName = if highFidelityBehavior == 1 then "Default"
+				elseif highFidelityBehavior == 2 then "Automatic"
+				elseif highFidelityBehavior == 3 then "Always"
+				else "Unknown"
+			Iris.Text({ "High fidelity: " .. currentBehaviorName })
+			for index, name in { "Default", "Automatic", "Always" } do
+				if Iris.Button({ name }).clicked() then
+					behavior.HighFidelityBehavior = index
+				end
+			end
+
+			local segmentSize = Iris.SliderNum(
+				{ "High-fidelity segment size", 0.05, 0.1, 10 },
+				{ number = States.HighFidelitySegmentSize }
+			)
+			if segmentSize.numberChanged() then
+				behavior.HighFidelitySegmentSize = States.HighFidelitySegmentSize.value
+			end
+
+			local accelerationY = Iris.SliderNum({ "Acceleration Y", 1, -500, 500 }, { number = States.AccelerationY })
+			if accelerationY.numberChanged() then
+				behavior.Acceleration = Vector3.new(
+					behavior.Acceleration.X,
+					States.AccelerationY.value,
+					behavior.Acceleration.Z
 				)
 			end
 
-			ImGui.Separator()
-			ImGui.Text("FastCastBehavior")
-			local behavior = Wrapper.Behavior
-
-			behavior.MaxDistance = ImGui.SliderFloat("Max distance", behavior.MaxDistance, 1, 10000)
-
-			ImGui.Text("HighFidelityBehavior")
-			local currentBehaviorName = "Unknown"
-			for _, option in HIGH_FIDELITY_BEHAVIORS do
-				if behavior.HighFidelityBehavior == option.Value then
-					currentBehaviorName = option.Name
-				end
-			end
-			ImGui.Text("Current: " .. currentBehaviorName)
-			for _, option in HIGH_FIDELITY_BEHAVIORS do
-				if ImGui.Button(option.Name) then
-					behavior.HighFidelityBehavior = option.Value
-				end
-				if option ~= HIGH_FIDELITY_BEHAVIORS[#HIGH_FIDELITY_BEHAVIORS] then
-					ImGui.SameLine()
-				end
+			local visualize = Iris.Checkbox({ "Visualize casts" }, { isChecked = States.VisualizeCasts })
+			if visualize.checked() or visualize.unchecked() then
+				behavior.VisualizeCasts = States.VisualizeCasts.value
 			end
 
-			behavior.HighFidelitySegmentSize = ImGui.SliderFloat(
-				"High-fidelity segment size",
-				behavior.HighFidelitySegmentSize,
-				0.1,
-				10
+			local autoIgnore = Iris.Checkbox(
+				{ "Auto-ignore cosmetic container" },
+				{ isChecked = States.AutoIgnoreContainer }
 			)
-
-			local gravityY = ImGui.SliderFloat("Acceleration Y", behavior.Acceleration.Y, -500, 500)
-			behavior.Acceleration = Vector3.new(
-				behavior.Acceleration.X,
-				gravityY,
-				behavior.Acceleration.Z
-			)
-
-			local _, visualizeCasts = ImGui.Checkbox("Visualize casts", behavior.VisualizeCasts)
-			behavior.VisualizeCasts = visualizeCasts
-
-			local _, autoIgnore = ImGui.Checkbox("Auto-ignore cosmetic container", behavior.AutoIgnoreContainer)
-			behavior.AutoIgnoreContainer = autoIgnore
+			if autoIgnore.checked() or autoIgnore.unchecked() then
+				behavior.AutoIgnoreContainer = States.AutoIgnoreContainer.value
+			end
 
 			RenderCosmeticSettings()
 		end
-	end
 
-	Wrapper:SyncConfiguration()
-	ImGui.End()
-	ImGui.Render()
-	ImGui_ImplRoblox.RenderDrawData(ImGui.GetDrawData())
+		Wrapper:SyncConfiguration()
+	end
+	Iris.End()
 end
 
-local function StopUI()
-	Equipped = false
-	if FrameConnection then
-		FrameConnection:Disconnect()
-		FrameConnection = nil
+local UiConnection = Iris:Connect(function()
+	if Equipped then
+		RenderConfig()
 	end
-
-	if ContextCreated then
-		pcall(function()
-			ImGui_ImplRoblox.Shutdown()
-		end)
-		pcall(function()
-			ImGui.DestroyContext()
-		end)
-		ContextCreated = false
-	end
-end
+end)
 
 local function StartUI()
 	if Equipped then
 		return
 	end
 	Equipped = true
-	WindowOpen = true
-
-	ImGui.CreateContext()
-	ContextCreated = true
-	local io = ImGui.GetIO()
-	io.IniFilename = nil
-	io.ConfigFlags = bit32.bor(io.ConfigFlags, ImGuiPackage.ImGuiConfigFlags.NavEnableKeyboard)
-
-	ImGui_ImplRoblox.Init()
-	ImGui_ImplRoblox.SetRenderRate(60)
-
-	FrameConnection = RunService.RenderStepped:Connect(RenderConfig)
-
 	task.spawn(function()
 		local ok, err = pcall(function()
 			Wrapper:Initialize()
@@ -298,6 +246,13 @@ local function StartUI()
 	end)
 end
 
+local function StopUI()
+	Equipped = false
+end
+
 Tool.Equipped:Connect(StartUI)
 Tool.Unequipped:Connect(StopUI)
-script.Destroying:Connect(StopUI)
+script.Destroying:Connect(function()
+	StopUI()
+	UiConnection:Disconnect()
+end)
