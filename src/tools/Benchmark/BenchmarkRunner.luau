@@ -11,7 +11,16 @@ local Benchmark = {}
 
 local function summarizeFrames(frameTimes: { number })
 	if #frameTimes == 0 then
-		return 0, 0, 0
+		return {
+			frames = 0,
+			averageMs = 0,
+			p50Ms = 0,
+			p95Ms = 0,
+			p99Ms = 0,
+			averageFps = 0,
+			minFps = 0,
+			maxFps = 0,
+		}
 	end
 
 	local sorted = table.clone(frameTimes)
@@ -25,7 +34,19 @@ local function summarizeFrames(frameTimes: { number })
 		return sorted[math.max(1, math.ceil(#sorted * fraction))]
 	end
 
-	return total / #frameTimes, percentile(0.95), percentile(0.99)
+	local averageMs = total / #frameTimes
+	local fastestFrameMs = sorted[1]
+	local slowestFrameMs = sorted[#sorted]
+	return {
+		frames = #frameTimes,
+		averageMs = averageMs,
+		p50Ms = percentile(0.50),
+		p95Ms = percentile(0.95),
+		p99Ms = percentile(0.99),
+		averageFps = if averageMs > 0 then 1000 / averageMs else 0,
+		minFps = if slowestFrameMs > 0 then 1000 / slowestFrameMs else 0,
+		maxFps = if fastestFrameMs > 0 then 1000 / fastestFrameMs else 0,
+	}
 end
 
 local function fire(caster: any, castType: string, origin: Vector3, direction: Vector3, options: any, behavior: any)
@@ -115,7 +136,7 @@ local function runMode(modeName: string, options: any): any
 	task.wait(options.sampleDuration)
 	measuring = false
 	heartbeatConnection:Disconnect()
-	local averageFrameMs, p95FrameMs, p99FrameMs = summarizeFrames(frameTimes)
+	local frameStats = summarizeFrames(frameTimes)
 
 	local cleanupStarted = os.clock()
 	caster:Destroy()
@@ -131,9 +152,14 @@ local function runMode(modeName: string, options: any): any
 		projectiles = options.projectileCount,
 		activeCasts = count,
 		creationMs = creationMs,
-		averageFrameMs = averageFrameMs,
-		p95FrameMs = p95FrameMs,
-		p99FrameMs = p99FrameMs,
+		frames = frameStats.frames,
+		averageFrameMs = frameStats.averageMs,
+		averageFps = frameStats.averageFps,
+		minFps = frameStats.minFps,
+		maxFps = frameStats.maxFps,
+		p50FrameMs = frameStats.p50Ms,
+		p95FrameMs = frameStats.p95Ms,
+		p99FrameMs = frameStats.p99Ms,
 		cleanupMs = cleanupMs,
 	}
 end

@@ -146,13 +146,18 @@ local function RenderConfig()
 				Iris.Text({ string.format("%s / %s: %s", result.mode, result.castType, result.error) })
 			else
 				Iris.Text({ string.format(
-					"%s / %s | create %.2f ms | avg %.2f ms | p95 %.2f ms | p99 %.2f ms | cleanup %.2f ms",
+					"%s / %s | %d frames | avg %.2f FPS (%.2f ms) | min %.2f FPS | max %.2f FPS | P50/P95/P99 %.2f/%.2f/%.2f ms | create %.2f ms | cleanup %.2f ms",
 					result.mode,
 					result.castType,
-					result.creationMs,
+					result.frames,
+					result.averageFps,
 					result.averageFrameMs,
+					result.minFps,
+					result.maxFps,
+					result.p50FrameMs,
 					result.p95FrameMs,
 					result.p99FrameMs,
+					result.creationMs,
 					result.cleanupMs
 				) })
 			end
