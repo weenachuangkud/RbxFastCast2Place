@@ -182,16 +182,19 @@ local function runCase(
 			end)
 		end
 	end
-	task.wait(1)
+	local cleanupDeadline = os.clock() + 5
+	while #activeCasts > 0 and os.clock() < cleanupDeadline do
+		task.wait()
+	end
 	if caster then
 		pcall(function()
 			caster:Destroy()
 		end)
 	end
 	pcall(restoreMovement, library, movementMode)
+	local cleanupMs = (os.clock() - cleanupStarted) * 1000
 	template:Destroy()
 	container:Destroy()
-	local cleanupMs = (os.clock() - cleanupStarted) * 1000
 
 	if ok then
 		result.cleanupMs = cleanupMs
