@@ -126,9 +126,37 @@ local function RestartSelectedSimulation(simulation)
 	return true
 end
 
+local function GetFrequencyName(frequency)
+	if frequency == Enum.StepFrequency.Hz30 then return "Hz30" end
+	if frequency == Enum.StepFrequency.Hz120 then return "Hz120" end
+	return "Hz60"
+end
+
+local function SyncServerModuleConfig(target: "Serial" | "Parallel", config)
+	task.spawn(function()
+		local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote", 10)
+		if not remote then
+			warn("[FastCast2 ConfigUI] Server Config endpoint is unavailable; only the client Config was changed.")
+			return
+		end
+		local ok, response = pcall(function()
+			return remote:InvokeServer("SetModuleConfig", {
+				target = target,
+				simulationMode = config.SimulationMode,
+				fixedFrequency = GetFrequencyName(config.FixedSimulationFrequency),
+			})
+		end)
+		if not ok then
+			warn("[FastCast2 ConfigUI] Could not sync server Config:", response)
+		elseif not response or not response.ok then
+			warn("[FastCast2 ConfigUI] Server Config was not changed:", if response then response.error else "No response")
+		end
+	end)
+end
+
 local function RenderLibraryConfig()
 	Iris.SeparatorText({ "FastCast2 module Config" })
-	Iris.Text({ "Edit the actual Config table used by each local library runtime." })
+	Iris.Text({ "Edit the module Config for this client and sync SimulationMode / fixed frequency to the server." })
 	local function LoadConfigStates(target: "Serial" | "Parallel")
 		local config = if target == "Parallel" then ParallelConfig else SerialConfig
 		States.ConfigSimulationMode:set(config.SimulationMode)
@@ -146,6 +174,8 @@ local function RenderLibraryConfig()
 		if Iris.Button({ target .. " Config" }).clicked() and States.ConfigTarget.value ~= target then
 			States.ConfigTarget:set(target)
 			LoadConfigStates(target)
+			local targetConfig = if target == "Parallel" then ParallelConfig else SerialConfig
+			SyncServerModuleConfig(target, targetConfig)
 		end
 	end
 
@@ -162,6 +192,8 @@ local function RenderLibraryConfig()
 				config.SimulationMode = mode
 				if not RestartSelectedSimulation(simulation) then
 					config.SimulationMode = previousMode
+				else
+					SyncServerModuleConfig(States.ConfigTarget.value, config)
 				end
 				States.ConfigSimulationMode:set(config.SimulationMode)
 			end
@@ -178,9 +210,12 @@ local function RenderLibraryConfig()
 			if IsTestRunning() then
 				warn("[FastCast2 ConfigUI] Finish benchmarks/tests before changing fixed frequency.")
 			else
+				local previousFrequency = config.FixedSimulationFrequency
 				config.FixedSimulationFrequency = frequency.value
-				if config.SimulationMode == "Fixed" then
-					RestartSelectedSimulation(simulation)
+				if config.SimulationMode == "Fixed" and not RestartSelectedSimulation(simulation) then
+					config.FixedSimulationFrequency = previousFrequency
+				else
+					SyncServerModuleConfig(States.ConfigTarget.value, config)
 				end
 				States.ConfigFixedFrequency:set(tostring(config.FixedSimulationFrequency))
 			end
@@ -395,7 +430,7 @@ local function RenderConfig()
 				PerfBenchSettings[toggle.key] = toggle.state.value
 			end
 		end
-		Iris.Text({ "PerfBench runs on the server only and reads the server's own FastCast2 Config. The Config editor above edits this client's Config; server-side PerFrame / Fixed changes currently require changing the server Config instance." })
+		Iris.Text({ "PerfBench runs on the server only and reads the server's own FastCast2 Config. The Config editor syncs SimulationMode and fixed frequency to the server when changed." })
 		Iris.SeparatorText({ "Latest PerfBench Results" })
 		Iris.Text({ "PerfBench status: " .. Reports.PerfBench.status })
 		if Reports.PerfBench.error then
