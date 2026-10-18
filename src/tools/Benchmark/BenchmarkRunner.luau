@@ -202,10 +202,27 @@ local function runMode(modeName, options)
 	if cosmeticTemplate then pcall(function() cosmeticTemplate:Destroy() end) end
 	pcall(function() container:Destroy() end)
 
+	-- Match the upstream benchmark's recovery window, then reinitialize the
+	-- selected runtime before another run can start. Cooldown is not included
+	-- in the measured cleanup duration.
+	task.wait(2.5)
+	local recovered, recoveryError = pcall(function()
+		if modeName == "Serial" then
+			library.Init(options.movementMode)
+		else
+			library.Init(options.workerCount, options.movementMode)
+		end
+	end)
+
 	if not ok then
 		return { mode = modeName, castType = options.castType, cleanupMs = cleanupMs,
 			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
 			remainingCastsAtCleanup = #activeCasts, error = tostring(runError) }
+	end
+	if not recovered then
+		return { mode = modeName, castType = options.castType, cleanupMs = cleanupMs,
+			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
+			remainingCastsAtCleanup = #activeCasts, error = "Runtime recovery failed: " .. tostring(recoveryError) }
 	end
 	result.cleanupMs = cleanupMs
 	result.cleanupCasts = castsAtCleanupStart
