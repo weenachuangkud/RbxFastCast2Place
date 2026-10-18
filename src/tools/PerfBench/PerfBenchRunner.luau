@@ -16,32 +16,24 @@ local Libraries = {
 }
 
 local PerfBench = {}
-local FrameTimes = {}
-local Measuring = false
 
-RunService.Heartbeat:Connect(function(deltaTime)
-	if Measuring and deltaTime > 0 then
-		table.insert(FrameTimes, deltaTime * 1000)
-	end
-end)
-
-local function summarizeFrames()
-	if #FrameTimes == 0 then
+local function summarizeFrames(frameTimes)
+	if #frameTimes == 0 then
 		return 0, 0, 0, 0
 	end
 
-	local sorted = table.clone(FrameTimes)
+	local sorted = table.clone(frameTimes)
 	table.sort(sorted)
 	local total = 0
-	for _, value in FrameTimes do
+	for _, value in frameTimes do
 		total += value
 	end
 
-	local function percentile(fraction: number)
+	local function percentile(fraction)
 		return sorted[math.max(1, math.ceil(#sorted * fraction))]
 	end
 
-	return total / #FrameTimes, percentile(0.50), percentile(0.95), percentile(0.99)
+	return total / #frameTimes, percentile(0.50), percentile(0.95), percentile(0.99)
 end
 
 local function setSimulationMode(modeName: string, simulationMode: string)
@@ -85,7 +77,9 @@ local function runCase(
 	template.Massless = true
 	template.Parent = ReplicatedStorage
 
-	local ok, result = pcall(function()
+	local activeCasts = {}
+	local firedCount = 0
+	local ok, result = xpcall(function()
 		if modeName == "Serial" then
 			library.Init(movementMode)
 		else
@@ -97,6 +91,8 @@ local function runCase(
 		behavior.Acceleration = Vector3.zero
 		behavior.AutoIgnoreContainer = true
 		behavior.HighFidelitySegmentSize = 1
+		behavior.FastCastEventsConfig.UseCastFire = true
+		behavior.FastCastEventsConfig.UseCastTerminating = true
 		behavior.CosmeticBulletTemplate = if instanced then template else nil
 		behavior.CosmeticBulletContainer = if instanced then container else nil
 
@@ -107,6 +103,20 @@ local function runCase(
 		behavior.RaycastParams = raycastParams
 
 		caster = library.new()
+		caster.CastFire = function(cast)
+			firedCount += 1
+			activeCasts[#activeCasts + 1] = cast
+		end
+		caster.CastTerminating = function(cast)
+			local index = table.find(activeCasts, cast)
+			if index then
+				table.remove(activeCasts, index)
+			end
+			local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
+			if cosmetic and cosmetic.Parent then
+				cosmetic:Destroy()
+			end
+		end
 		caster:SetMovementModeEnabled(movement, movementMode)
 
 		local random = Random.new(2026)
@@ -128,12 +138,18 @@ local function runCase(
 		local creationMs = (os.clock() - creationStarted) * 1000
 
 		task.wait()
-		table.clear(FrameTimes)
-		Measuring = true
+		local frameTimes = {}
+		local measuring = true
+		local heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
+			if measuring and deltaTime > 0 then
+				frameTimes[#frameTimes + 1] = deltaTime * 1000
+			end
+		end)
 		task.wait(sampleDuration)
-		Measuring = false
+		measuring = false
+		heartbeatConnection:Disconnect()
 
-		local average, p50, p95, p99 = summarizeFrames()
+		local average, p50, p95, p99 = summarizeFrames(frameTimes)
 		local cleanupStarted = os.clock()
 		caster:Destroy()
 		caster = nil
@@ -143,6 +159,7 @@ local function runCase(
 			mode = modeName,
 			simulationMode = simulationMode,
 			projectiles = projectileCount,
+			firedCasts = firedCount,
 			instanced = instanced,
 			movement = movement,
 			creationMs = creationMs,
@@ -154,7 +171,16 @@ local function runCase(
 		}
 	end)
 
-	Measuring = false
+	-- Terminate casts left alive by the sample before destroying the caster.
+	for i = #activeCasts, 1, -1 do
+		local cast = activeCasts[i]
+		if cast then
+			pcall(function()
+				library:TerminateCast(cast)
+			end)
+		end
+	end
+	task.wait(1)
 	if caster then
 		pcall(function()
 			caster:Destroy()
@@ -165,6 +191,7 @@ local function runCase(
 	container:Destroy()
 
 	if ok then
+		result.remainingCastsAtCleanup = #activeCasts
 		return result
 	end
 	return {
