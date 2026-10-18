@@ -116,6 +116,7 @@ local function runMode(modeName, options)
 	caster:SetMovementModeEnabled(true, options.movementMode)
 
 	local result
+	local heartbeatConnection = nil
 	local ok, runError = xpcall(function()
 		local random = Random.new(options.randomSeed)
 		local creationStarted = os.clock()
@@ -139,7 +140,7 @@ local function runMode(modeName, options)
 		task.wait()
 		local frameTimes = {}
 		local measuring = true
-		local heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
+		heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
 			if measuring and deltaTime > 0 then
 				frameTimes[#frameTimes + 1] = deltaTime * 1000
 			end
@@ -147,6 +148,7 @@ local function runMode(modeName, options)
 		task.wait(options.sampleDuration)
 		measuring = false
 		heartbeatConnection:Disconnect()
+		heartbeatConnection = nil
 
 		local frameStats = summarizeFrames(frameTimes)
 		result = {
@@ -165,6 +167,12 @@ local function runMode(modeName, options)
 			creationMs = creationMs,
 		}
 	end, debug.traceback)
+
+	-- Disconnect even when sampling throws, so the next mode cannot inherit a
+	-- stale Heartbeat callback.
+	if heartbeatConnection then
+		heartbeatConnection:Disconnect()
+	end
 
 	-- Explicitly terminate remaining casts so one mode cannot pollute the next.
 	local cleanupStarted = os.clock()
