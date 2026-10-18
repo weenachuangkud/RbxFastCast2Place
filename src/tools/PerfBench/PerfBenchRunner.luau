@@ -1,5 +1,6 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local Libraries = {
 	Serial = {
@@ -27,11 +28,24 @@ local function summarizeFrames(frameTimes)
 end
 
 local function runCase(modeName: string, projectileCount: number, sampleDuration: number,
-	movement: boolean, workerCount: number, movementMode: string)
+	instanced: boolean, movement: boolean, workerCount: number, movementMode: string)
 	local mode = Libraries[modeName]
 	local library = mode.library
 	local simulationMode = mode.config.SimulationMode
 	local caster = nil
+	local container = Instance.new("Folder")
+	container.Name = "FastCast2PerfBenchCosmetics"
+	container.Parent = Workspace
+	local template = Instance.new("Part")
+	template.Name = "FastCast2PerfBenchProjectile"
+	template.Size = Vector3.one
+	template.Anchored = true
+	template.CanCollide = false
+	template.CanQuery = false
+	template.CanTouch = false
+	template.CastShadow = false
+	template.Massless = true
+	template.Parent = ReplicatedStorage
 
 	local activeCasts = {}
 	local firedCount = 0
@@ -45,12 +59,11 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		behavior.HighFidelitySegmentSize = 1
 		behavior.FastCastEventsConfig.UseCastFire = true
 		behavior.FastCastEventsConfig.UseCastTerminating = true
-		-- PerfBench intentionally measures instanceless casts only.
-		behavior.CosmeticBulletTemplate = nil
-		behavior.CosmeticBulletContainer = nil
+		behavior.CosmeticBulletTemplate = if instanced then template else nil
+		behavior.CosmeticBulletContainer = if instanced then container else nil
 		local raycastParams = RaycastParams.new()
 		raycastParams.FilterType = Enum.RaycastFilterType.Exclude
-		raycastParams.FilterDescendantsInstances = {}
+		raycastParams.FilterDescendantsInstances = { container }
 		raycastParams.IgnoreWater = true
 		behavior.RaycastParams = raycastParams
 
@@ -92,7 +105,7 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		local average, p50, p95, p99 = summarizeFrames(frameTimes)
 		return {
 			mode = modeName, simulationMode = simulationMode, projectiles = projectileCount,
-			firedCasts = firedCount, movement = movement,
+			firedCasts = firedCount, instanced = instanced, movement = movement,
 			creationMs = creationMs, creationProjectilesPerSecond = creationProjectilesPerSecond,
 			averageFrameMs = average, p50FrameMs = p50, p95FrameMs = p95, p99FrameMs = p99,
 		}
@@ -117,6 +130,8 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		pcall(function() caster:SetMovementModeEnabled(true, movementMode) end)
 		pcall(function() caster:Destroy() end)
 	end
+	pcall(function() template:Destroy() end)
+	pcall(function() container:Destroy() end)
 
 	local remaining = #activeCasts
 	if ok then
@@ -129,7 +144,7 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 	end
 	return {
 		mode = modeName, simulationMode = simulationMode, projectiles = projectileCount,
-		movement = movement, cleanupMs = cleanupMs,
+		instanced = instanced, movement = movement, cleanupMs = cleanupMs,
 		cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
 		remainingCastsAtCleanup = remaining, error = tostring(result),
 	}
@@ -137,7 +152,7 @@ end
 
 function PerfBench.run(options: {
 	projectileCount: number, maxProjectileCount: number?, sampleDuration: number,
-	mode: string, workerCount: number,
+	mode: string, workerCount: number, instanced: boolean,
 	includeMovementEnabled: boolean, includeMovementDisabled: boolean,
 }): { any }
 	-- Server-only: use the actual selected module Config; never rewrite SimulationMode.
@@ -157,7 +172,7 @@ function PerfBench.run(options: {
 
 	local results = {}
 	for _, movement in movements do
-		local result = runCase(modeName, count, duration, movement, options.workerCount, movementMode)
+		local result = runCase(modeName, count, duration, options.instanced == true, movement, options.workerCount, movementMode)
 		table.insert(results, result)
 		if result.error then break end -- isolation: do not start another case after failed cleanup
 		task.wait(2) -- match upstream's inter-case cooldown and let worker messages settle
