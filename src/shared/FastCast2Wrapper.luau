@@ -333,14 +333,30 @@ function Wrapper:SyncConfiguration()
 end
 
 local function ApplyConfiguration(self, payload)
+	-- Set runtime initialization inputs before SetMode creates a new caster.
+	-- Parallel.Init consumes WorkerCount only on its first initialization.
 	local mode = if payload.mode == 2 then "Parallel" else "Serial"
-	if self.Settings.Mode ~= mode then self:SetMode(mode) end
+	local movementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
+
 	self.Settings.Velocity = payload.velocity
-	self.Settings.MovementMode = if payload.movementMode == 2 then "Motor6D" else "BulkMoveTo"
+	self.Settings.MovementMode = movementMode
 	self.Settings.WorkerCount = payload.workerCount
 	self.Settings.CastType = if payload.castType == 2 then "Blockcast" elseif payload.castType == 3 then "Spherecast" else "Raycast"
 	self.Settings.BlockcastSize = payload.blockcastSize
 	self.Settings.SpherecastRadius = payload.spherecastRadius
+
+	if self.Settings.Mode ~= mode then
+		self:SetMode(mode)
+	elseif self:IsReady() then
+		-- Init updates movement mode but does not rebuild the caster.
+		if mode == "Serial" then
+			SerialFastCast.Init(movementMode)
+		else
+			ParallelFastCast.Init(self.Settings.WorkerCount, movementMode, self.FastCastEventsModule)
+		end
+		self.Caster:SetMovementModeEnabled(true, movementMode)
+	end
+
 	self.Behavior.MaxDistance = payload.maxDistance
 	self.Behavior.HighFidelityBehavior = payload.highFidelityBehavior
 	self.Behavior.HighFidelitySegmentSize = payload.highFidelitySegmentSize
