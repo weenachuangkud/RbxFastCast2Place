@@ -81,6 +81,7 @@ local function runCase(
 	template.CanCollide = false
 	template.CanQuery = false
 	template.CanTouch = false
+	template.CastShadow = false
 	template.Massless = true
 	template.Parent = ReplicatedStorage
 

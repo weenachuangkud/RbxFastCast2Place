@@ -53,8 +53,19 @@ local function runMode(modeName: string, options: any): any
 	behavior.HighFidelityBehavior = options.highFidelityBehavior
 	behavior.HighFidelitySegmentSize = options.highFidelitySegmentSize
 	behavior.VisualizeCasts = options.visualizeCasts
-	behavior.CosmeticBulletTemplate = options.cosmeticTemplate
 	behavior.CloneTemplate = true
+	local cosmeticTemplate = if options.cosmeticTemplate then options.cosmeticTemplate:Clone() else nil
+	if cosmeticTemplate then
+		cosmeticTemplate.Name = "FastCastBenchmarkProjectileTemplate"
+		cosmeticTemplate.Anchored = true
+		cosmeticTemplate.CanCollide = false
+		cosmeticTemplate.CanQuery = false
+		cosmeticTemplate.CanTouch = false
+		cosmeticTemplate.CastShadow = false
+		cosmeticTemplate.Massless = true
+		cosmeticTemplate.Parent = ReplicatedStorage
+	end
+	behavior.CosmeticBulletTemplate = cosmeticTemplate
 
 	local container = Instance.new("Folder")
 	container.Name = "FastCastBenchmarkProjectiles"
@@ -109,6 +120,9 @@ local function runMode(modeName: string, options: any): any
 	local cleanupStarted = os.clock()
 	caster:Destroy()
 	local cleanupMs = (os.clock() - cleanupStarted) * 1000
+	if cosmeticTemplate then
+		cosmeticTemplate:Destroy()
+	end
 	container:Destroy()
 
 	return {
