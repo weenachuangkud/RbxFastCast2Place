@@ -327,7 +327,7 @@ local function RenderConfig()
 		end
 		for _, result in Reports.Benchmark.results do
 			if result.error then
-				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.castType) })
+				Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode or "Benchmark", result.castType or "") })
 				Iris.Text({ "Error: " .. result.error })
 			else
 				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.castType) })
@@ -405,10 +405,10 @@ local function RenderConfig()
 		end
 		for _, result in Reports.PerfBench.results do
 			if result.error then
-				Iris.SeparatorText({ string.format("%s / %s", result.mode or "PerfBench", result.simulationMode or "") })
+				Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode or "PerfBench", result.simulationMode or "") })
 				Iris.Text({ "Error: " .. result.error })
 			else
-				Iris.SeparatorText({ string.format("%s / %s", result.mode, result.simulationMode) })
+				Iris.SeparatorText({ string.format("%s / %s / %s", result.side or "Client", result.mode or "PerfBench", result.simulationMode or "") })
 				Iris.Text({ string.format(
 					"Setup: instanced %s | movement %s",
 					tostring(result.instanced),
