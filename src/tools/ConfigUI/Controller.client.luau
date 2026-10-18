@@ -128,22 +128,26 @@ local function RenderConfig()
 			end
 		end
 
-		Iris.Text({ "Use Benchmark for the cast-type suite, or PerfBench for the separate PerFrame / Fixed stress matrix." })
+		Iris.Text({ "Benchmark runs the selected cast type; PerfBench runs the separate PerFrame / Fixed stress comparison." })
 		Iris.Text({ "Benchmark status: " .. Reports.Benchmark.status })
 		if Reports.Benchmark.error then
 			Iris.Text({ "Benchmark error: " .. Reports.Benchmark.error })
 		end
 		for _, result in Reports.Benchmark.results do
-			Iris.Text({ string.format(
-				"%s / %s | create %.2f ms | avg %.2f ms | p95 %.2f ms | p99 %.2f ms | cleanup %.2f ms",
-				result.mode,
-				result.castType,
-				result.creationMs,
-				result.averageFrameMs,
-				result.p95FrameMs,
-				result.p99FrameMs,
-				result.cleanupMs
-			) })
+			if result.error then
+				Iris.Text({ string.format("%s / %s: %s", result.mode, result.castType, result.error) })
+			else
+				Iris.Text({ string.format(
+					"%s / %s | create %.2f ms | avg %.2f ms | p95 %.2f ms | p99 %.2f ms | cleanup %.2f ms",
+					result.mode,
+					result.castType,
+					result.creationMs,
+					result.averageFrameMs,
+					result.p95FrameMs,
+					result.p99FrameMs,
+					result.cleanupMs
+				) })
+			end
 		end
 
 		Iris.SeparatorText({ "FastCast2 PerfBench" })

@@ -21,12 +21,6 @@
       "FastCast2ParallelTests": {
         "$path": "vendor/FastCast2Parallel/tests/src"
       },
-      "FastCast2SerialBenchmarks": {
-        "$path": "vendor/FastCast2Serial/tests/src/Benchmarks.luau"
-      },
-      "FastCast2ParallelBenchmarks": {
-        "$path": "vendor/FastCast2Parallel/tests/src/Benchmarks.luau"
-      },
       "Projectiles": {
         "$path": "projectiles"
       },

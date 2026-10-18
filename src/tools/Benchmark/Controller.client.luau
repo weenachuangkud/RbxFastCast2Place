@@ -37,24 +37,27 @@ local function runBenchmark()
 	Reports.Benchmark = { status = "Running", results = {}, error = nil }
 	task.spawn(function()
 		local ok, resultOrError = pcall(function()
-			local allResults = {}
-			local adapter = ReplicatedStorage:WaitForChild("FastCast2")
-			local overrides = {
+			local BenchmarkRunner = require(script.Parent:WaitForChild("BenchmarkRunner"))
+			return BenchmarkRunner.run({
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, 5000),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
-				parallelWorkers = Wrapper.Settings.WorkerCount,
-			}
-
-			for _, mode in { "Serial", "Parallel" } do
-				adapter:SetAttribute("Mode", mode)
-				local benchmarkModule = ReplicatedStorage:WaitForChild("FastCast2" .. mode .. "Benchmarks")
-				local Benchmarks = require(benchmarkModule)
-				for _, result in Benchmarks.run(overrides) do
-					table.insert(allResults, result)
-				end
-			end
-
-			return allResults
+				workerCount = Wrapper.Settings.WorkerCount,
+				castType = Wrapper.Settings.CastType,
+				movementMode = Wrapper.Settings.MovementMode,
+				velocity = Wrapper.Settings.Velocity,
+				blockcastSize = Wrapper.Settings.BlockcastSize,
+				spherecastRadius = Wrapper.Settings.SpherecastRadius,
+				maxDistance = Wrapper.Behavior.MaxDistance,
+				acceleration = Wrapper.Behavior.Acceleration,
+				autoIgnoreContainer = Wrapper.Behavior.AutoIgnoreContainer,
+				highFidelityBehavior = Wrapper.Behavior.HighFidelityBehavior,
+				highFidelitySegmentSize = Wrapper.Behavior.HighFidelitySegmentSize,
+				visualizeCasts = Wrapper.Behavior.VisualizeCasts,
+				cosmeticTemplate = if Wrapper.Settings.CosmeticMode == "Instanced"
+					then Wrapper.Behavior.CosmeticBulletTemplate
+					else nil,
+				randomSeed = 2026,
+			})
 		end)
 
 		if ok then
@@ -67,7 +70,7 @@ local function runBenchmark()
 				results = resultOrError,
 				error = nil,
 			}
-			print("[FastCast2 Benchmark] Complete. See ConfigUI for the results table.")
+			print("[FastCast2 Benchmark] Complete for " .. Wrapper.Settings.CastType .. ". See ConfigUI for the results table.")
 		else
 			Reports.Benchmark = {
 				status = "Failed",

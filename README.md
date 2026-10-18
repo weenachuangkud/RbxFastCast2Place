@@ -33,9 +33,9 @@ The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and
 
 - **ConfigUI** — equip to open the Iris configuration window; unequip to hide it. It edits wrapper behavior, caster mode, projectile cosmetics, and benchmark options. It also displays the latest benchmark and unit-test results locally, without requiring server logs.
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
-- **Benchmark** — click to run the Serial and Parallel Raycast/Blockcast/Spherecast benchmark matrix.
+- **Benchmark** — click to benchmark the currently selected cast type in Serial and Parallel modes.
 - **PerfBench** — click separately to run the PerFrame/Fixed stress matrix with instancing and movement toggles.
-- **UnitTest** — click to run the upstream functional tests for both Serial and Parallel. Both tools initialize FastCast2 on demand if ConfigUI has not been equipped yet.
+- **UnitTest** — click to run the upstream functional tests for both Serial and Parallel. Benchmark, PerfBench, and UnitTest initialize FastCast2 on demand if ConfigUI has not been equipped yet.
 
 Configure options in ConfigUI, run Benchmark, PerfBench, or UnitTest, then equip ConfigUI again to inspect the latest client-side report.
 
