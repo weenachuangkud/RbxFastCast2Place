@@ -42,6 +42,7 @@ local function runBenchmark()
 				projectileCount = math.clamp(math.floor(Settings.ProjectileCount), 1, Settings.MaxProjectileCount),
 				sampleDuration = math.clamp(Settings.SampleDuration, 1, 10),
 				mode = Wrapper.Settings.Mode,
+				context = Wrapper.Settings.Context,
 				workerCount = Wrapper.Settings.WorkerCount,
 				castType = Wrapper.Settings.CastType,
 				movementMode = Wrapper.Settings.MovementMode,
@@ -59,21 +60,33 @@ local function runBenchmark()
 					else nil,
 				randomSeed = 2026,
 			}
-			local results = BenchmarkRunner.run(options)
-			local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote")
-			local serverOptions = table.clone(options)
-			serverOptions.cosmeticTemplate = nil
-			serverOptions.cosmeticMode = Wrapper.Settings.CosmeticMode
-			local serverResponse = remote:InvokeServer("Benchmark", serverOptions)
-			if serverResponse and serverResponse.results then
-				for _, result in serverResponse.results do
+			local results = {}
+			if options.context == "Client" or options.context == "Both" then
+				for _, result in BenchmarkRunner.run(options) do
+					result.side = "Client"
 					table.insert(results, result)
 				end
-			elseif serverResponse and serverResponse.error then
-				table.insert(results, { side = "Server", error = serverResponse.error })
 			end
-			for _, result in results do
-				result.side = result.side or "Client"
+			if options.context == "Server" or options.context == "Both" then
+				local remote = ReplicatedStorage:WaitForChild("FastCast2BenchmarkRemote", 10)
+				if not remote then
+					table.insert(results, { side = "Server", error = "Server benchmark endpoint was not available within 10 seconds." })
+				else
+					local serverOptions = table.clone(options)
+					serverOptions.cosmeticTemplate = nil
+					serverOptions.cosmeticMode = Wrapper.Settings.CosmeticMode
+					local response = remote:InvokeServer("Benchmark", serverOptions)
+					if response and response.results then
+						for _, result in response.results do
+							result.side = "Server"
+							table.insert(results, result)
+						end
+					elseif response and response.error then
+						table.insert(results, { side = "Server", error = response.error })
+					else
+						table.insert(results, { side = "Server", error = "Server benchmark returned no results." })
+					end
+				end
 			end
 			return results
 		end)
