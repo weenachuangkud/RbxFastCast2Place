@@ -106,8 +106,6 @@ local function runPerfBench(options)
 		mode = options.mode,
 		workerCount = math.clamp(math.floor(options.workerCount or 4), 1, 32),
 		instanced = options.instanced == true,
-		includePerFrame = options.includePerFrame == true,
-		includeFixed = options.includeFixed == true,
 		includeMovementEnabled = options.includeMovementEnabled == true,
 		includeMovementDisabled = options.includeMovementDisabled == true,
 	}
