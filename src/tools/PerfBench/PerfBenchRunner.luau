@@ -175,7 +175,7 @@ function PerfBench.run(options: {
 		local result = runCase(modeName, count, duration, options.instanced == true, movement, options.workerCount, movementMode)
 		table.insert(results, result)
 		if result.error then break end -- isolation: do not start another case after failed cleanup
-		task.wait(1) -- allow deferred termination/worker messages to settle
+		task.wait(2) -- match upstream's inter-case cooldown and let worker messages settle
 	end
 	return results
 end
