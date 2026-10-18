@@ -79,6 +79,7 @@ local function runCase(
 
 	local activeCasts = {}
 	local firedCount = 0
+	local heartbeatConnection = nil
 	local ok, result = xpcall(function()
 		if modeName == "Serial" then
 			library.Init(movementMode)
@@ -140,7 +141,7 @@ local function runCase(
 		task.wait()
 		local frameTimes = {}
 		local measuring = true
-		local heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
+		heartbeatConnection = RunService.Heartbeat:Connect(function(deltaTime)
 			if measuring and deltaTime > 0 then
 				frameTimes[#frameTimes + 1] = deltaTime * 1000
 			end
@@ -148,12 +149,9 @@ local function runCase(
 		task.wait(sampleDuration)
 		measuring = false
 		heartbeatConnection:Disconnect()
+		heartbeatConnection = nil
 
 		local average, p50, p95, p99 = summarizeFrames(frameTimes)
-		local cleanupStarted = os.clock()
-		caster:Destroy()
-		caster = nil
-		local cleanupMs = (os.clock() - cleanupStarted) * 1000
 
 		return {
 			mode = modeName,
@@ -167,11 +165,14 @@ local function runCase(
 			p50FrameMs = p50,
 			p95FrameMs = p95,
 			p99FrameMs = p99,
-			cleanupMs = cleanupMs,
 		}
 	end)
 
-	-- Terminate casts left alive by the sample before destroying the caster.
+	-- Always stop sampling and terminate casts before destroying their caster.
+	if heartbeatConnection then
+		heartbeatConnection:Disconnect()
+	end
+	local cleanupStarted = os.clock()
 	for i = #activeCasts, 1, -1 do
 		local cast = activeCasts[i]
 		if cast then
@@ -189,8 +190,10 @@ local function runCase(
 	pcall(restoreMovement, library, movementMode)
 	template:Destroy()
 	container:Destroy()
+	local cleanupMs = (os.clock() - cleanupStarted) * 1000
 
 	if ok then
+		result.cleanupMs = cleanupMs
 		result.remainingCastsAtCleanup = #activeCasts
 		return result
 	end
