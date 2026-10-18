@@ -8,6 +8,8 @@ local Equipped = false
 local ModeSwitching = false
 
 local States = {
+	ProjectileCount = Iris.State(100),
+	SimulationMode = Iris.State("PerFrame"),
 	Velocity = Iris.State(Wrapper.Settings.Velocity),
 	BlockcastSize = Iris.State(Wrapper.Settings.BlockcastSize.X),
 	SpherecastRadius = Iris.State(Wrapper.Settings.SpherecastRadius),
@@ -105,6 +107,25 @@ end
 local function RenderConfig()
 	local window = Iris.Window({ "FastCast2 Config" })
 	if window.state.isOpened.value then
+		Iris.SeparatorText({ "FastCast2 Benchmark" })
+		Iris.SliderNum({ "Projectile count", 1, 1, 5000 }, { number = States.ProjectileCount })
+
+		Iris.Text({ "Cast mode: " .. Wrapper.Settings.Mode })
+		for _, mode in { "Serial", "Parallel" } do
+			if Iris.Button({ mode }).clicked() then
+				RequestMode(mode)
+			end
+		end
+
+		Iris.Text({ "Simulation mode: " .. States.SimulationMode.value })
+		for _, mode in { "PerFrame", "Fixed" } do
+			if Iris.Button({ mode }).clicked() then
+				States.SimulationMode:set(mode)
+			end
+		end
+		Iris.Text({ "Runner: not connected yet" })
+		Iris.Text({ string.format("Count: %d", States.ProjectileCount.value) })
+
 		Iris.Text({ "Wrapper state: " .. Wrapper.State })
 		Iris.Text({ "Settings apply to future casts." })
 		Iris.SeparatorText({ "Fire context" })
@@ -137,11 +158,6 @@ local function RenderConfig()
 		elseif Wrapper.State == "Destroyed" then
 			Iris.Text({ "The wrapper has been destroyed." })
 		else
-			Iris.Text({ "Current caster: " .. Wrapper.Settings.Mode })
-			if Iris.Button({ "Switch caster mode" }).clicked() then
-				RequestMode(if Wrapper.Settings.Mode == "Serial" then "Parallel" else "Serial")
-			end
-
 			Iris.SeparatorText({ "Fire settings" })
 			local velocity = Iris.SliderNum({ "Velocity", 1, 1, 5000 }, { number = States.Velocity })
 			if velocity.numberChanged() then

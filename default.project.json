@@ -24,13 +24,6 @@
         "$path": "src/server"
       }
     },
-    "StarterPlayer": {
-      "StarterPlayerScripts": {
-        "Client": {
-          "$path": "src/client"
-        }
-      }
-    },
     "StarterPack": {
       "BasicFire": {
         "$className": "Tool",
@@ -40,15 +33,6 @@
           "ToolTip": "Fire a FastCast2 projectile toward the mouse"
         },
         "$path": "src/tools/BasicFire"
-      },
-      "Benchmark": {
-        "$className": "Tool",
-        "$properties": {
-          "RequiresHandle": false,
-          "CanBeDropped": false,
-          "ToolTip": "Run FastCast2 benchmark scenarios"
-        },
-        "$path": "src/tools/Benchmark"
       },
       "ConfigUI": {
         "$className": "Tool",
