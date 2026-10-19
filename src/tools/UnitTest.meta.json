@@ -1,8 +1,0 @@
-{
-  "$className": "Tool",
-  "$properties": {
-    "RequiresHandle": false,
-    "CanBeDropped": false,
-    "ToolTip": "Run Serial and Parallel FastCast2 functional tests"
-  }
-}
