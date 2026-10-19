@@ -12,15 +12,6 @@
       "FastCast2Parallel": {
         "$path": "vendor/FastCast2Parallel/src"
       },
-      "FastCast2": {
-        "$path": "src/shared/FastCast2TestAdapter"
-      },
-      "FastCast2SerialTests": {
-        "$path": "vendor/FastCast2Serial/tests/src"
-      },
-      "FastCast2ParallelTests": {
-        "$path": "vendor/FastCast2Parallel/tests/src"
-      },
       "Projectiles": {
         "$path": "projectiles"
       },
@@ -69,15 +60,6 @@
           "ToolTip": "Run the server-side stress benchmark using FastCast2 module Config"
         },
         "$path": "src/tools/PerfBench"
-      },
-      "UnitTest": {
-        "$className": "Tool",
-        "$properties": {
-          "RequiresHandle": false,
-          "CanBeDropped": false,
-          "ToolTip": "Run Serial and Parallel FastCast2 functional tests"
-        },
-        "$path": "src/tools/UnitTest"
       }
     }
   }
