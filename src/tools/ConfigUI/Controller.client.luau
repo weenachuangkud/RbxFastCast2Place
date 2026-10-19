@@ -48,7 +48,6 @@ local States = {
 	UISectionModuleConfig = Iris.State(true),
 	UISectionBenchmark = Iris.State(true),
 	UISectionPerfBench = Iris.State(false),
-	UISectionUnitTests = Iris.State(false),
 	UISectionRuntime = Iris.State(true),
 }
 
@@ -85,9 +84,9 @@ local function RequestWorkerCount(workerCount: number)
 		States.WorkerCount:set(workerCount)
 		return
 	end
-	if Reports.Benchmark.status == "Running" or Reports.PerfBench.status == "Running" or Reports.UnitTest.status == "Running" then
+	if Reports.Benchmark.status == "Running" or Reports.PerfBench.status == "Running" then
 		States.WorkerCount:set(Wrapper.Settings.WorkerCount)
-		warn("[FastCast2 ConfigUI] Wait for the current benchmark or test to finish before resizing Actors.")
+		warn("[FastCast2 ConfigUI] Wait for the current benchmark to finish before resizing Actors.")
 		return
 	end
 
@@ -115,7 +114,6 @@ end
 local function IsTestRunning()
 	return Reports.Benchmark.status == "Running"
 		or Reports.PerfBench.status == "Running"
-		or Reports.UnitTest.status == "Running"
 end
 
 local function RestartSelectedSimulation(simulation)
@@ -496,24 +494,6 @@ local function RenderConfig()
 					) })
 					Iris.Text({ string.format("Create: %.2f ms (%.0f casts/s) | cleanup: %.2f ms (%.0f casts/s)", result.creationMs, result.creationProjectilesPerSecond or 0, result.cleanupMs, result.cleanupProjectilesPerSecond or 0) })
 				end
-			end
-
-		end
-		Iris.End()
-
-		local unitTestsSection = Iris.Tree({ "Unit test results" }, { isUncollapsed = States.UISectionUnitTests })
-		if unitTestsSection.state.isUncollapsed.value then
-			Iris.Text({ "Unit test status: " .. Reports.UnitTest.status })
-			for _, result in Reports.UnitTest.modes do
-				Iris.Text({
-					string.format("%s: %d passed / %d, %d failed", result.mode, result.passed, result.total, result.failed),
-				})
-			end
-			for _, failure in Reports.UnitTest.failures do
-				Iris.Text({ string.format("FAIL %s / %s: %s", failure.mode, failure.name, failure.error) })
-			end
-			if Reports.UnitTest.error then
-				Iris.Text({ "Unit test error: " .. Reports.UnitTest.error })
 			end
 
 		end
