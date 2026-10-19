@@ -9,10 +9,4 @@ return {
 		results = {},
 		error = nil,
 	},
-	UnitTest = {
-		status = "Not run",
-		modes = {},
-		failures = {},
-		error = nil,
-	},
 }

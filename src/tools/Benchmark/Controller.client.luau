@@ -12,10 +12,6 @@ local function runBenchmark()
 		warn("[FastCast2 Benchmark] A benchmark is already running.")
 		return
 	end
-	if Reports.UnitTest.status == "Running" then
-		warn("[FastCast2 Benchmark] Wait for the unit test run to finish first.")
-		return
-	end
 	if Reports.PerfBench.status == "Running" then
 		warn("[FastCast2 Benchmark] Wait for the PerfBench run to finish first.")
 		return
