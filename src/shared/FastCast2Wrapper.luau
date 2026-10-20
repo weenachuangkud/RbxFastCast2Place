@@ -20,6 +20,7 @@ type CasterMode = "Serial" | "Parallel"
 type CastType = "Raycast" | "Blockcast" | "Spherecast"
 type MovementMode = "BulkMoveTo" | "Motor6D"
 type WrapperState = "Uninitialized" | "Initializing" | "Ready" | "Failed" | "Destroyed"
+type RuntimeState = "Uninitialized" | "Running" | "Stopped" | "Destroyed"
 type CosmeticMode = "Instanced" | "Instanceless"
 type FireContext = "Client" | "Server" | "Both"
 
@@ -40,6 +41,7 @@ type WrapperSettings = {
 
 local Wrapper = {
 	State = "Uninitialized" :: WrapperState,
+	RuntimeState = "Uninitialized" :: RuntimeState,
 	Mode = "Serial" :: CasterMode,
 	ErrorMessage = nil :: string?,
 	Caster = nil :: any,
@@ -157,35 +159,23 @@ end
 
 local ParallelRuntimeWorkerCount: number? = nil
 
-local function CreateCaster(self)
-	local library
-	if self.Settings.Mode == "Serial" then
-		library = SerialFastCast
-	else
-		library = ParallelFastCast
-	end
-
-	-- Both source repositories use a shared runtime initialized once per
-	-- Luau context. They do not use the old per-caster :Init() API.
+local function StartLibraryRuntime(self, library)
+	-- Init is intentionally used for both first initialization and resume.
+	-- It is idempotent while running and restarts a runtime after Stop().
 	if self.Settings.Mode == "Serial" then
 		library.Init(self.Settings.MovementMode)
 	else
-		if ParallelRuntimeWorkerCount ~= nil and ParallelRuntimeWorkerCount ~= self.Settings.WorkerCount then
-			if type(library.ReconfigureWorkers) == "function" then
-				local resized = library.ReconfigureWorkers(self.Settings.WorkerCount)
-				if resized then
-					task.wait(6)
-				end
-			else
-				error(
-					"FastCast2Parallel does not support resizing its worker pool after initialization. Restart this Luau context to apply a different Actor count.",
-					2
-				)
-			end
-		end
 		library.Init(self.Settings.WorkerCount, self.Settings.MovementMode, self.FastCastEventsModule)
-		ParallelRuntimeWorkerCount = ParallelRuntimeWorkerCount or self.Settings.WorkerCount
+		ParallelRuntimeWorkerCount = self.Settings.WorkerCount
 	end
+	self.RuntimeState = "Running"
+end
+
+local function CreateCaster(self)
+	local library = if self.Settings.Mode == "Serial" then SerialFastCast else ParallelFastCast
+
+	-- Both libraries expose a shared runtime rather than a per-caster Init().
+	StartLibraryRuntime(self, library)
 
 	local caster = library.new()
 	ApplyEvents(self, caster)
@@ -203,6 +193,21 @@ local function InitializeInternal(self)
 		self.Library = nil
 		self.State = "Failed"
 		self.ErrorMessage = tostring(library)
+
+		local failedLibrary = if self.Settings.Mode == "Serial" then SerialFastCast else ParallelFastCast
+		if self.Settings.Mode == "Parallel" then
+			pcall(function()
+				failedLibrary.DestroyVMs()
+			end)
+			ParallelRuntimeWorkerCount = nil
+			self.RuntimeState = "Destroyed"
+		elseif self.RuntimeState == "Running" then
+			pcall(function()
+				failedLibrary.Stop()
+			end)
+			self.RuntimeState = "Stopped"
+		end
+
 		error(library, 2)
 	end
 
@@ -216,6 +221,9 @@ end
 
 function Wrapper:Initialize()
 	if self.State == "Ready" then
+		if self.RuntimeState ~= "Running" then
+			self:ResumeRuntime()
+		end
 		return self.Caster
 	end
 	if self.State == "Initializing" then
@@ -236,33 +244,127 @@ function Wrapper:Initialize()
 end
 
 function Wrapper:IsReady(): boolean
-	return self.State == "Ready" and self.Caster ~= nil
+	return self.State == "Ready" and self.Caster ~= nil and self.RuntimeState == "Running"
 end
 
 function Wrapper:GetCaster()
 	if not self:IsReady() then
-		error("FastCast2Wrapper is not ready. Current state: " .. self.State, 2)
+		error(
+			"FastCast2Wrapper is not ready. Wrapper state: " .. self.State
+				.. "; runtime state: " .. self.RuntimeState,
+			2
+		)
 	end
 	return self.Caster
+end
+
+function Wrapper:StopRuntime()
+	AssertNotInitializing(self)
+	if self.State == "Destroyed" then
+		error("FastCast2Wrapper has been destroyed.", 2)
+	end
+	if self.RuntimeState ~= "Running" then
+		return
+	end
+
+	local library = self.Library or (if self.Settings.Mode == "Serial" then SerialFastCast else ParallelFastCast)
+	library.Stop()
+	self.RuntimeState = "Stopped"
+end
+
+function Wrapper:ResumeRuntime()
+	AssertNotInitializing(self)
+	if self.State == "Destroyed" then
+		error("FastCast2Wrapper has been destroyed.", 2)
+	end
+	if self.State ~= "Ready" or self.Caster == nil then
+		return self:Initialize()
+	end
+	if self.RuntimeState == "Running" then
+		return self.Caster
+	end
+
+	local library = self.Library or (if self.Settings.Mode == "Serial" then SerialFastCast else ParallelFastCast)
+	local ok, err = pcall(function()
+		StartLibraryRuntime(self, library)
+	end)
+	if not ok then
+		self.ErrorMessage = tostring(err)
+		error(err, 2)
+	end
+	self.ErrorMessage = nil
+	return self.Caster
+end
+
+function Wrapper:DestroyParallelVMs()
+	AssertNotInitializing(self)
+	if self.State == "Destroyed" then
+		error("FastCast2Wrapper has been destroyed.", 2)
+	end
+	assert(self.Settings.Mode == "Parallel", "DestroyParallelVMs is only available in Parallel mode.")
+
+	if self.RuntimeState == "Uninitialized" or self.RuntimeState == "Destroyed" then
+		return
+	end
+
+	ParallelFastCast.DestroyVMs()
+	ParallelRuntimeWorkerCount = nil
+	self.RuntimeState = "Destroyed"
 end
 
 function Wrapper:SetMode(mode: CasterMode)
 	AssertNotInitializing(self)
 	assert(mode == "Serial" or mode == "Parallel", "Mode must be Serial or Parallel.")
 	if self.State == "Ready" and self.Settings.Mode == mode then
+		if self.RuntimeState ~= "Running" then
+			return self:ResumeRuntime()
+		end
 		return self.Caster
 	end
 
-	self.State = "Initializing"
+	local previousMode = self.Settings.Mode
+	local previousRuntimeState = self.RuntimeState
+	local previousLibrary = self.Library or (if previousMode == "Serial" then SerialFastCast else ParallelFastCast)
 	local oldCaster = self.Caster
+	self.State = "Initializing"
 	self.Caster = nil
 	self.Library = nil
 
-	if oldCaster then
-		pcall(function()
+	local teardownOk, teardownError = pcall(function()
+		-- Stop updates before removing this mode's caster. A Parallel runtime is
+		-- fully torn down so switching back always creates a fresh worker pool.
+		if previousRuntimeState == "Running" then
+			previousLibrary.Stop()
+		end
+		if oldCaster then
 			oldCaster:Destroy()
-		end)
+		end
+		if previousMode == "Parallel"
+			and previousRuntimeState ~= "Uninitialized"
+			and previousRuntimeState ~= "Destroyed"
+		then
+			previousLibrary.DestroyVMs()
+		end
+	end)
+	if not teardownOk then
+		self.State = "Failed"
+		self.ErrorMessage = tostring(teardownError)
+		if previousMode == "Parallel" then
+			pcall(function()
+				ParallelFastCast.DestroyVMs()
+			end)
+			ParallelRuntimeWorkerCount = nil
+			self.RuntimeState = "Destroyed"
+		else
+			self.RuntimeState = "Stopped"
+		end
+		error(teardownError, 2)
 	end
+
+	if previousMode == "Parallel" then
+		ParallelRuntimeWorkerCount = nil
+	end
+	self.RuntimeState = "Uninitialized"
 
 	self.Settings.Mode = mode
 	self.Mode = mode
@@ -281,26 +383,58 @@ function Wrapper:SetWorkerCount(workerCount: number)
 	end
 
 	local previousWorkerCount = self.Settings.WorkerCount
-	self.Settings.WorkerCount = workerCount
-	-- Remember the setting in Serial mode; the Parallel pool is resized when
-	-- Parallel is next initialized.
 	if self.Settings.Mode ~= "Parallel" or self.State ~= "Ready" then
+		self.Settings.WorkerCount = workerCount
 		return self.Caster
 	end
 
-	self.State = "Initializing"
+	local previousRuntimeState = self.RuntimeState
 	local oldCaster = self.Caster
+	self.State = "Initializing"
 	self.Caster = nil
 	self.Library = nil
-	if oldCaster then
-		oldCaster:Destroy()
+
+	local teardownOk, teardownError = pcall(function()
+		if previousRuntimeState == "Running" then
+			ParallelFastCast.Stop()
+		end
+		if oldCaster then
+			oldCaster:Destroy()
+		end
+		if previousRuntimeState ~= "Uninitialized" and previousRuntimeState ~= "Destroyed" then
+			ParallelFastCast.DestroyVMs()
+		end
+	end)
+	if not teardownOk then
+		self.State = "Failed"
+		self.ErrorMessage = tostring(teardownError)
+		pcall(function()
+			ParallelFastCast.DestroyVMs()
+		end)
+		ParallelRuntimeWorkerCount = nil
+		self.RuntimeState = "Destroyed"
+		error(teardownError, 2)
 	end
 
-	-- CreateCaster rebuilds the shared Actor pool and enforces the six-second
-	-- cooldown while the wrapper remains unavailable.
+	ParallelRuntimeWorkerCount = nil
+	self.RuntimeState = "Uninitialized"
+	self.Settings.WorkerCount = workerCount
+
+	-- Resizing uses the public lifecycle API: destroy the old worker pool and
+	-- initialize a new pool with the requested Actor count.
 	local ok, result = pcall(InitializeInternal, self)
 	if not ok then
 		self.Settings.WorkerCount = previousWorkerCount
+		self.State = "Initializing"
+		local restored, restoreError = pcall(InitializeInternal, self)
+		if not restored then
+			self.State = "Failed"
+			self.ErrorMessage = tostring(restoreError)
+			error(
+				tostring(result) .. "; could not restore the previous Actor count: " .. tostring(restoreError),
+				2
+			)
+		end
 		error(result, 2)
 	end
 	return result
@@ -469,6 +603,12 @@ end
 
 function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
 	AssertNotInitializing(self)
+	if not self:IsReady() then
+		error(
+			"FastCast2Wrapper cannot fire while its runtime is not running. Runtime state: " .. self.RuntimeState,
+			2
+		)
+	end
 	assert(typeof(origin) == "Vector3", "Origin must be a Vector3.")
 	assert(typeof(direction) == "Vector3" and direction.Magnitude > 0, "Direction must be a non-zero Vector3.")
 	local context = self.Settings.Context
@@ -527,12 +667,38 @@ function Wrapper:Destroy()
 		return
 	end
 
-	self.State = "Destroyed"
+	local mode = self.Settings.Mode
+	local previousRuntimeState = self.RuntimeState
+	local library = self.Library or (if mode == "Serial" then SerialFastCast else ParallelFastCast)
 	local caster = self.Caster
+
+	self.State = "Destroyed"
 	self.Caster = nil
 	self.Library = nil
-	if caster then
-		caster:Destroy()
+
+	local ok, err = pcall(function()
+		if previousRuntimeState == "Running" then
+			library.Stop()
+		end
+		if caster then
+			caster:Destroy()
+		end
+		if mode == "Parallel"
+			and previousRuntimeState ~= "Uninitialized"
+			and previousRuntimeState ~= "Destroyed"
+		then
+			library.DestroyVMs()
+		end
+	end)
+
+	if mode == "Parallel" then
+		ParallelRuntimeWorkerCount = nil
+		self.RuntimeState = "Destroyed"
+	else
+		self.RuntimeState = if previousRuntimeState == "Uninitialized" then "Uninitialized" else "Stopped"
+	end
+	if not ok then
+		error(err, 2)
 	end
 end
 
