@@ -27,7 +27,19 @@ To update a dependency deliberately, enter its submodule, check out the intended
 - Client and server contexts have independent wrapper state. ByteNet synchronizes shared cast settings and relays fire requests to the server.
 - StarterPack tools share the wrapper instead of creating their own casters.
 
-The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching modes destroys the current caster and creates one using the other implementation; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI; resizing requires an idle Parallel runtime and leaves the wrapper unavailable for six seconds.
+The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching between Serial and Parallel destroys the current caster and creates one using the other implementation; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI; resizing requires an idle Parallel runtime and leaves the wrapper unavailable for six seconds.
+
+### Runtime lifecycle
+
+The library runtime and the wrapper/caster lifecycle are separate concerns:
+
+- **`Init(...)`** initializes the library runtime. Calling it again while the runtime is already running is safe; after `Stop()`, calling `Init(...)` resumes simulation. Initialize the runtime before creating or firing casts.
+- **`Stop()`** stops the simulation update loop without destroying the runtime or its active casts. A later `Init(...)` resumes it; this is a pause/resume operation, not a full reset.
+- **Parallel `DestroyVMs()`** tears down the Parallel worker VMs and discards active casts and queued fire requests. Existing caster objects and their signals remain, but firing requires `Init(...)` again. Do not treat this as equivalent to `Stop()`.
+- **Mode switching** is handled by the wrapper: it destroys the old caster and creates one for the selected implementation. Active casts do not transfer between Serial and Parallel. This is separate from pausing or resuming a library runtime.
+- **Movement mode** is configured through the shared library API, `FastCast2.SetMovementModeEnabled(enabled, mode)`, rather than a per-caster method.
+
+The wrapper should only call full Parallel teardown when it intentionally needs to destroy the worker pool, such as a deliberate runtime reset. For ordinary pause/resume, use `Stop()` and `Init(...)`.
 
 ## Tools
 
@@ -35,7 +47,6 @@ The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and
 - **BasicFire** — fire a projectile from the local character's head toward the mouse target.
 - **Benchmark** — click to benchmark the currently selected cast type in the selected Serial or Parallel mode, using the wrapper’s current movement, cosmetic, velocity, fidelity, and Actor-count settings.
 - **PerfBench** — click separately to run the selected Serial or Parallel implementation through the configured Raycast PerFrame/Fixed cases. Its count, sample duration, instancing, simulation modes, and movement cases are configured independently in ConfigUI.
-
 
 Configure options in ConfigUI, run Benchmark or PerfBench, then equip ConfigUI again to inspect the latest client-side report. Functional tests are maintained and run separately in the FastCast2 source repositories.
 
