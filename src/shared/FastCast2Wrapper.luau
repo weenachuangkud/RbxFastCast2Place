@@ -155,6 +155,8 @@ local function ApplyEvents(self, caster)
 	end
 end
 
+local ParallelRuntimeWorkerCount: number? = nil
+
 local function CreateCaster(self)
 	local library
 	if self.Settings.Mode == "Serial" then
@@ -168,11 +170,21 @@ local function CreateCaster(self)
 	if self.Settings.Mode == "Serial" then
 		library.Init(self.Settings.MovementMode)
 	else
-		local resized = library.ReconfigureWorkers(self.Settings.WorkerCount)
-		if resized then
-			task.wait(6)
+		if ParallelRuntimeWorkerCount ~= nil and ParallelRuntimeWorkerCount ~= self.Settings.WorkerCount then
+			if type(library.ReconfigureWorkers) == "function" then
+				local resized = library.ReconfigureWorkers(self.Settings.WorkerCount)
+				if resized then
+					task.wait(6)
+				end
+			else
+				error(
+					"FastCast2Parallel does not support resizing its worker pool after initialization. Restart this Luau context to apply a different Actor count.",
+					2
+				)
+			end
 		end
 		library.Init(self.Settings.WorkerCount, self.Settings.MovementMode, self.FastCastEventsModule)
+		ParallelRuntimeWorkerCount = ParallelRuntimeWorkerCount or self.Settings.WorkerCount
 	end
 
 	local caster = library.new()
