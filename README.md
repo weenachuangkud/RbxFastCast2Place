@@ -27,7 +27,7 @@ To update a dependency deliberately, enter its submodule, check out the intended
 - Client and server contexts have independent wrapper state. ByteNet synchronizes shared cast settings and relays fire requests to the server.
 - StarterPack tools share the wrapper instead of creating their own casters.
 
-The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states. It rejects firing while not ready. Switching between Serial and Parallel destroys the current caster and creates one using the other implementation; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI; resizing requires an idle Parallel runtime and leaves the wrapper unavailable for six seconds.
+The wrapper has explicit `Uninitialized`, `Initializing`, `Ready`, `Failed`, and `Destroyed` states, plus a separate runtime state (`Uninitialized`, `Running`, `Stopped`, or `Destroyed`). It rejects firing while the wrapper or runtime is not ready. Switching between Serial and Parallel stops the old runtime, destroys its caster, and tears down the old Parallel worker pool when applicable before creating the replacement; active casts are not migrated. The default mode is Serial and the default fire context is Client. Parallel Actor count can be changed from ConfigUI by destroying the old worker pool and initializing a new one with the requested count.
 
 ### Runtime lifecycle
 
@@ -39,7 +39,13 @@ The library runtime and the wrapper/caster lifecycle are separate concerns:
 - **Mode switching** is handled by the wrapper: it destroys the old caster and creates one for the selected implementation. Active casts do not transfer between Serial and Parallel. This is separate from pausing or resuming a library runtime.
 - **Movement mode** is configured through the shared library API, `FastCast2.SetMovementModeEnabled(enabled, mode)`, rather than a per-caster method.
 
-The wrapper should only call full Parallel teardown when it intentionally needs to destroy the worker pool, such as a deliberate runtime reset. For ordinary pause/resume, use `Stop()` and `Init(...)`.
+ConfigUI exposes lifecycle controls so you can exercise these transitions directly:
+
+- **Stop runtime** pauses the currently selected library while preserving its runtime and active casts.
+- **Resume / Init runtime** resumes a stopped runtime, or recreates a destroyed Parallel runtime.
+- **Destroy Parallel VMs** tears down the worker pool without discarding the wrapper/caster object. Active casts and queued fire requests are discarded; use Resume / Init runtime to create a fresh worker pool before firing again.
+
+Switching mode and resizing the active Parallel Actor pool use the same lifecycle APIs automatically. These operations are blocked while a benchmark is running.
 
 ## Tools
 
