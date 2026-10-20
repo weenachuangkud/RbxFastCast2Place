@@ -603,6 +603,12 @@ end
 
 function Wrapper:Fire(origin: Vector3, direction: Vector3, velocity: (number | Vector3)?, behavior)
 	AssertNotInitializing(self)
+	if not self:IsReady() then
+		error(
+			"FastCast2Wrapper cannot fire while its runtime is not running. Runtime state: " .. self.RuntimeState,
+			2
+		)
+	end
 	assert(typeof(origin) == "Vector3", "Origin must be a Vector3.")
 	assert(typeof(direction) == "Vector3" and direction.Magnitude > 0, "Direction must be a non-zero Vector3.")
 	local context = self.Settings.Context
