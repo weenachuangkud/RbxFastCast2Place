@@ -403,6 +403,9 @@ local function RenderConfig()
 						result.firedCasts or 0,
 						result.remainingCastsAtCleanup or 0
 					) })
+					if result.warning then
+						Iris.Text({ "Warning: " .. result.warning })
+					end
 					Iris.Text({ string.format(
 						"FPS: average %.2f | minimum %.2f | maximum %.2f",
 						result.averageFps,
@@ -537,10 +540,16 @@ local function RenderConfig()
 				Iris.Text({ "The wrapper has been destroyed." })
 			else
 				Iris.SeparatorText({ "Fire settings" })
-				local velocity = Iris.SliderNum({ "Velocity", 50, 1, 5000 }, { number = States.Velocity })
+				local velocity = Iris.InputNum(
+					{ "Velocity" },
+					{ number = States.Velocity }
+				)
 				if velocity.numberChanged() then
-					Wrapper.Settings.Velocity = States.Velocity.value
+					local value = math.clamp(States.Velocity.value, 1, 5000)
+					States.Velocity:set(value)
+					Wrapper.Settings.Velocity = value
 				end
+				Iris.Text({ "Allowed range: 1 to 5,000." })
 				Iris.Text({ "Used by runtime firing and the regular Benchmark tool. PerfBench is unchanged." })
 
 				for _, castType in { "Raycast", "Blockcast", "Spherecast" } do
