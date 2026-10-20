@@ -350,13 +350,16 @@ local function RenderConfig()
 			if sampleDuration.numberChanged() then
 				BenchmarkSettings.SampleDuration = States.SampleDuration.value
 			end
-			local benchmarkVelocity = Iris.SliderNum(
-				{ "Benchmark velocity", 50, 1, 5000 },
+			local benchmarkVelocity = Iris.InputNum(
+				{ "Benchmark velocity" },
 				{ number = States.BenchmarkVelocity }
 			)
 			if benchmarkVelocity.numberChanged() then
-				BenchmarkSettings.Velocity = States.BenchmarkVelocity.value
+				local velocity = math.clamp(States.BenchmarkVelocity.value, 1, 5000)
+				States.BenchmarkVelocity:set(velocity)
+				BenchmarkSettings.Velocity = velocity
 			end
+			Iris.Text({ "Default: 50 | allowed range: 1 to 5,000." })
 			local benchmarkAcceleration = Iris.SliderNum(
 				{ "Benchmark acceleration Y", 10, -500, 500 },
 				{ number = States.BenchmarkAccelerationY }
