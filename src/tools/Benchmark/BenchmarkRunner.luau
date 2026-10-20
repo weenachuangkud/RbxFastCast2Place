@@ -228,7 +228,7 @@ local function runMode(modeName, options)
 	result.cleanupCasts = castsAtCleanupStart
 	result.cleanupProjectilesPerSecond = cleanupProjectilesPerSecond
 	result.remainingCastsAtCleanup = #activeCasts
-	if #activeCasts > 0 then result.error = "Cleanup timed out; active casts remain, so results may be contaminated." end
+	if #activeCasts > 0 then result.warning = "Cleanup timed out; active casts remain, so results may be contaminated." end
 	return result
 end
 
