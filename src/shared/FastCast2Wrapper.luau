@@ -417,7 +417,8 @@ local function ApplyConfiguration(self, payload)
 		if mode == "Serial" then
 			SerialFastCast.Init(movementMode)
 		end
-		self.Caster:SetMovementModeEnabled(true, movementMode)
+		local library = if mode == "Serial" then SerialFastCast else ParallelFastCast
+		library.SetMovementModeEnabled(true, movementMode)
 	end
 
 	self.Behavior.MaxDistance = payload.maxDistance

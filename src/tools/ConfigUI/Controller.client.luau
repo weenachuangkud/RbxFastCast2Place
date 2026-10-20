@@ -389,7 +389,7 @@ local function RenderConfig()
 								if Wrapper.Settings.Mode == "Serial" then
 									Wrapper.Library.Init(movementMode)
 								end
-								Wrapper.Caster:SetMovementModeEnabled(true, movementMode)
+								Wrapper.Library.SetMovementModeEnabled(true, movementMode)
 							end
 							States.MovementMode:set(movementMode)
 							Wrapper:SyncConfiguration()
