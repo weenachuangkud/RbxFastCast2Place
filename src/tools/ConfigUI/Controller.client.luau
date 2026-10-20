@@ -117,6 +117,37 @@ local function IsTestRunning()
 		or Reports.PerfBench.status == "Running"
 end
 
+local function RequestLifecycleAction(action: "Stop" | "Resume" | "DestroyVMs")
+	if ModeSwitching or Wrapper.State == "Initializing" then
+		return
+	end
+	if IsTestRunning() then
+		warn("[FastCast2 ConfigUI] Wait for the current benchmark to finish before changing runtime lifecycle.")
+		return
+	end
+	if action == "DestroyVMs" and Wrapper.Settings.Mode ~= "Parallel" then
+		warn("[FastCast2 ConfigUI] Switch to Parallel mode before destroying worker VMs.")
+		return
+	end
+
+	ModeSwitching = true
+	task.spawn(function()
+		local ok, err = pcall(function()
+			if action == "Stop" then
+				Wrapper:StopRuntime()
+			elseif action == "Resume" then
+				Wrapper:ResumeRuntime()
+			else
+				Wrapper:DestroyParallelVMs()
+			end
+		end)
+		if not ok then
+			warn("[FastCast2 ConfigUI] Runtime " .. action .. " failed:", err)
+		end
+		ModeSwitching = false
+	end)
+end
+
 local function RestartSelectedSimulation(simulation)
 	if IsTestRunning() then
 		return false
@@ -538,7 +569,26 @@ local function RenderConfig()
 		local runtimeSection = Iris.Tree({ "Runtime status & firing controls" }, { isUncollapsed = States.UISectionRuntime })
 		if runtimeSection.state.isUncollapsed.value then
 			Iris.Text({ "Wrapper state: " .. Wrapper.State })
+			Iris.Text({ "Runtime state: " .. Wrapper.RuntimeState })
 			Iris.Text({ "Settings apply to future casts." })
+
+			Iris.SeparatorText({ "Runtime lifecycle" })
+			Iris.Text({ "Stop pauses simulation while preserving the runtime. Resume calls Init() again. Destroy VMs fully tears down the Parallel worker pool; active casts are discarded." })
+			if Wrapper.RuntimeState == "Running" then
+				if Iris.Button({ "Stop runtime" }).clicked() then
+					RequestLifecycleAction("Stop")
+				end
+			elseif Wrapper.State ~= "Destroyed" then
+				if Iris.Button({ "Resume / Init runtime" }).clicked() then
+					RequestLifecycleAction("Resume")
+				end
+			end
+			if Wrapper.Settings.Mode == "Parallel" and Wrapper.RuntimeState ~= "Uninitialized" and Wrapper.RuntimeState ~= "Destroyed" then
+				if Iris.Button({ "Destroy Parallel VMs" }).clicked() then
+					RequestLifecycleAction("DestroyVMs")
+				end
+			end
+
 			Iris.SeparatorText({ "Fire context" })
 			for _, context in { "Client", "Server", "Both" } do
 				if Iris.Button({ context }).clicked() then
