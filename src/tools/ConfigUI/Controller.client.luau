@@ -32,6 +32,7 @@ local States = {
 	BenchmarkVelocity = Iris.State(BenchmarkSettings.Velocity),
 	BenchmarkAccelerationY = Iris.State(BenchmarkSettings.AccelerationY),
 	WorkerCount = Iris.State(Wrapper.Settings.WorkerCount),
+	MovementMode = Iris.State(Wrapper.Settings.MovementMode),
 	PerfProjectileCount = Iris.State(PerfBenchSettings.ProjectileCount),
 	PerfInstanced = Iris.State(PerfBenchSettings.Instanced),
 	PerfSampleDuration = Iris.State(PerfBenchSettings.SampleDuration),
@@ -373,6 +374,37 @@ local function RenderConfig()
 				if Iris.Button({ mode }).clicked() then
 					RequestMode(mode)
 				end
+			end
+
+			Iris.SeparatorText({ "Movement mode" })
+			Iris.Text({ "Controls how projectile cosmetic parts are moved." })
+			for _, movementMode in { "BulkMoveTo", "Motor6D" } do
+				if Iris.Button({ movementMode }).clicked() and Wrapper.Settings.MovementMode ~= movementMode then
+					if IsTestRunning() or ModeSwitching or Wrapper.State == "Initializing" then
+						warn("[FastCast2 ConfigUI] Wait for the current benchmark and mode changes to finish before changing Movement Mode.")
+					else
+						local ok, err = pcall(function()
+							Wrapper.Settings.MovementMode = movementMode
+							if Wrapper:IsReady() then
+								if Wrapper.Settings.Mode == "Serial" then
+									SerialSimulation.Stop()
+									SerialConfig.MovementMode = movementMode
+									SerialSimulation.Start()
+								end
+								Wrapper.Caster:SetMovementModeEnabled(true, movementMode)
+							end
+							States.MovementMode:set(movementMode)
+							Wrapper:SyncConfiguration()
+						end)
+						if not ok then
+							warn("[FastCast2 ConfigUI] Could not change Movement Mode:", err)
+						end
+					end
+				end
+			end
+			Iris.Text({ "Selected: " .. Wrapper.Settings.MovementMode })
+			if States.MovementMode.value ~= Wrapper.Settings.MovementMode then
+				States.MovementMode:set(Wrapper.Settings.MovementMode)
 			end
 
 			Iris.Text({ "Benchmark follows the selected fire context (Client / Server / Both). PerfBench always runs on the server and uses the server's current FastCast2 module Config." })
