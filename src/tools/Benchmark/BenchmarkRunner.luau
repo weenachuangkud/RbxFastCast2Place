@@ -99,10 +99,21 @@ local function runMode(modeName, options)
 	local firedCount = 0
 	local castFireConnection = caster.CastFire:Connect(function(cast)
 		firedCount += 1
-		activeCasts[cast.ID] = cast
+		local casterCasts = activeCasts[cast.Caster]
+		if not casterCasts then
+			casterCasts = {}
+			activeCasts[cast.Caster] = casterCasts
+		end
+		casterCasts[cast.ID] = cast
 	end)
 	local castTerminatingConnection = caster.CastTerminating:Connect(function(cast)
-		activeCasts[cast.ID] = nil
+		local casterCasts = activeCasts[cast.Caster]
+		if casterCasts then
+			casterCasts[cast.ID] = nil
+			if next(casterCasts) == nil then
+				activeCasts[cast.Caster] = nil
+			end
+		end
 		local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
 		if cosmetic and cosmetic.Parent then
 			cosmetic:Destroy()
@@ -176,9 +187,11 @@ local function runMode(modeName, options)
 	local cleanupStarted = os.clock()
 	local castsAtCleanupStart = 0
 	local castsToTerminate = {}
-	for _, cast in activeCasts do
-		castsAtCleanupStart += 1
-		table.insert(castsToTerminate, cast)
+	for _, casterCasts in activeCasts do
+		for _, cast in casterCasts do
+			castsAtCleanupStart += 1
+			table.insert(castsToTerminate, cast)
+		end
 	end
 	for _, cast in castsToTerminate do
 		pcall(function()
@@ -217,7 +230,9 @@ local function runMode(modeName, options)
 			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
 			remainingCastsAtCleanup = (function()
 			local count = 0
-			for _ in activeCasts do count += 1 end
+			for _, casterCasts in activeCasts do
+				for _ in casterCasts do count += 1 end
+			end
 			return count
 		end)(), error = tostring(runError) }
 	end
@@ -226,7 +241,9 @@ local function runMode(modeName, options)
 			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
 			remainingCastsAtCleanup = (function()
 			local count = 0
-			for _ in activeCasts do count += 1 end
+			for _, casterCasts in activeCasts do
+				for _ in casterCasts do count += 1 end
+			end
 			return count
 		end)(), error = "Runtime recovery failed: " .. tostring(recoveryError) }
 	end
@@ -235,7 +252,9 @@ local function runMode(modeName, options)
 	result.cleanupProjectilesPerSecond = cleanupProjectilesPerSecond
 	result.remainingCastsAtCleanup = (function()
 			local count = 0
-			for _ in activeCasts do count += 1 end
+			for _, casterCasts in activeCasts do
+				for _ in casterCasts do count += 1 end
+			end
 			return count
 		end)()
 	if next(activeCasts) ~= nil then result.warning = "Cleanup timed out; active casts remain, so results may be contaminated." end
