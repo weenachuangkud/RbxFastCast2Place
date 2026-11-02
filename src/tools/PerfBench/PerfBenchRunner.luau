@@ -70,10 +70,21 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		caster = library.new()
 		castFireConnection = caster.CastFire:Connect(function(cast)
 			firedCount += 1
-			activeCasts[cast.ID] = cast
+			local casterCasts = activeCasts[cast.Caster]
+			if not casterCasts then
+				casterCasts = {}
+				activeCasts[cast.Caster] = casterCasts
+			end
+			casterCasts[cast.ID] = cast
 		end)
 		castTerminatingConnection = caster.CastTerminating:Connect(function(cast)
-			activeCasts[cast.ID] = nil
+			local casterCasts = activeCasts[cast.Caster]
+			if casterCasts then
+				casterCasts[cast.ID] = nil
+				if next(casterCasts) == nil then
+					activeCasts[cast.Caster] = nil
+				end
+			end
 			local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
 			if cosmetic and cosmetic.Parent then cosmetic:Destroy() end
 		end)
@@ -114,9 +125,11 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 	local cleanupStarted = os.clock()
 	local castsAtCleanupStart = 0
 	local castsToTerminate = {}
-	for _, cast in activeCasts do
-		castsAtCleanupStart += 1
-		table.insert(castsToTerminate, cast)
+	for _, casterCasts in activeCasts do
+		for _, cast in casterCasts do
+			castsAtCleanupStart += 1
+			table.insert(castsToTerminate, cast)
+		end
 	end
 	for _, cast in castsToTerminate do
 		pcall(function() library.TerminateCast(cast) end)
@@ -138,7 +151,9 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 	pcall(function() container:Destroy() end)
 
 	local remaining = 0
-	for _ in activeCasts do remaining += 1 end
+	for _, casterCasts in activeCasts do
+		for _ in casterCasts do remaining += 1 end
+	end
 	if ok then
 		result.cleanupMs = cleanupMs
 		result.cleanupCasts = castsAtCleanupStart
