@@ -50,6 +50,8 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 	local activeCasts = {}
 	local firedCount = 0
 	local heartbeatConnection = nil
+	local castFireConnection = nil
+	local castTerminatingConnection = nil
 	local ok, result = xpcall(function()
 		if modeName == "Serial" then library.Init(movementMode) else library.Init(workerCount, movementMode) end
 		local behavior = library.newBehavior()
@@ -57,8 +59,6 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		behavior.Acceleration = Vector3.zero
 		behavior.AutoIgnoreContainer = true
 		behavior.HighFidelitySegmentSize = 1
-		behavior.FastCastEventsConfig.UseCastFire = true
-		behavior.FastCastEventsConfig.UseCastTerminating = true
 		behavior.CosmeticBulletTemplate = if instanced then template else nil
 		behavior.CosmeticBulletContainer = if instanced then container else nil
 		local raycastParams = RaycastParams.new()
@@ -68,17 +68,16 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		behavior.RaycastParams = raycastParams
 
 		caster = library.new()
-		caster.CastFire = function(cast)
+		castFireConnection = caster.CastFire:Connect(function(cast)
 			firedCount += 1
-			activeCasts[#activeCasts + 1] = cast
-		end
-		caster.CastTerminating = function(cast)
-			local index = table.find(activeCasts, cast)
-			if index then table.remove(activeCasts, index) end
+			activeCasts[cast.ID] = cast
+		end)
+		castTerminatingConnection = caster.CastTerminating:Connect(function(cast)
+			activeCasts[cast.ID] = nil
 			local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
 			if cosmetic and cosmetic.Parent then cosmetic:Destroy() end
-		end
-		caster:SetMovementModeEnabled(movement, movementMode)
+		end)
+		library.SetMovementModeEnabled(movement, movementMode)
 
 		local random = Random.new(2026)
 		local creationStarted = os.clock()
@@ -113,27 +112,33 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 
 	if heartbeatConnection then heartbeatConnection:Disconnect() end
 	local cleanupStarted = os.clock()
-	local castsAtCleanupStart = #activeCasts
-	local castsToTerminate = table.clone(activeCasts)
-	for i = #castsToTerminate, 1, -1 do
-		local cast = castsToTerminate[i]
-		if cast then pcall(function() library:TerminateCast(cast) end) end
+	local castsAtCleanupStart = 0
+	local castsToTerminate = {}
+	for _, cast in activeCasts do
+		castsAtCleanupStart += 1
+		table.insert(castsToTerminate, cast)
+	end
+	for _, cast in castsToTerminate do
+		pcall(function() library.TerminateCast(cast) end)
 	end
 	local cleanupDeadline = os.clock() + 5
-	while #activeCasts > 0 and os.clock() < cleanupDeadline do task.wait() end
+	while next(activeCasts) ~= nil and os.clock() < cleanupDeadline do task.wait() end
 	local cleanupElapsed = os.clock() - cleanupStarted
 	local cleanupMs = cleanupElapsed * 1000
 	local cleanupProjectilesPerSecond = if cleanupElapsed > 0 then castsAtCleanupStart / cleanupElapsed else 0
 
 	-- Restore movement after timing cleanup; do not let disabled movement leak.
 	if caster then
-		pcall(function() caster:SetMovementModeEnabled(true, movementMode) end)
+		pcall(function() library.SetMovementModeEnabled(true, movementMode) end)
+		if castFireConnection then castFireConnection:Disconnect() end
+		if castTerminatingConnection then castTerminatingConnection:Disconnect() end
 		pcall(function() caster:Destroy() end)
 	end
 	pcall(function() template:Destroy() end)
 	pcall(function() container:Destroy() end)
 
-	local remaining = #activeCasts
+	local remaining = 0
+	for _ in activeCasts do remaining += 1 end
 	if ok then
 		result.cleanupMs = cleanupMs
 		result.cleanupCasts = castsAtCleanupStart
