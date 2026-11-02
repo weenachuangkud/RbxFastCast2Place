@@ -70,19 +70,19 @@ local function runCase(modeName: string, projectileCount: number, sampleDuration
 		caster = library.new()
 		castFireConnection = caster.CastFire:Connect(function(cast)
 			firedCount += 1
-			local casterCasts = activeCasts[cast.Caster]
+			local casterCasts = activeCasts[cast.Caster.Actor or cast.Caster]
 			if not casterCasts then
 				casterCasts = {}
-				activeCasts[cast.Caster] = casterCasts
+				activeCasts[cast.Caster.Actor or cast.Caster] = casterCasts
 			end
 			casterCasts[cast.ID] = cast
 		end)
 		castTerminatingConnection = caster.CastTerminating:Connect(function(cast)
-			local casterCasts = activeCasts[cast.Caster]
+			local casterCasts = activeCasts[cast.Caster.Actor or cast.Caster]
 			if casterCasts then
 				casterCasts[cast.ID] = nil
 				if next(casterCasts) == nil then
-					activeCasts[cast.Caster] = nil
+					activeCasts[cast.Caster.Actor or cast.Caster] = nil
 				end
 			end
 			local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
