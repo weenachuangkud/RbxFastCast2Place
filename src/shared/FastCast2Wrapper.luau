@@ -73,6 +73,7 @@ local Wrapper = {
 		LengthChanged = nil,
 		CanPierce = nil,
 	},
+	EventConnections = {},
 
 	FastCastEventsModule = nil :: ModuleScript?,
 }
@@ -145,10 +146,25 @@ local function ApplyCosmeticSettings(self)
 	behavior.CosmeticBulletTemplate = template or GetDefaultCosmeticTemplate()
 end
 
+local function DisconnectEventConnections(self)
+	for _, connection in self.EventConnections do
+		connection:Disconnect()
+	end
+	table.clear(self.EventConnections)
+end
+
 local function ApplyEvents(self, caster)
+	DisconnectEventConnections(self)
+
 	for name, callback in self.Events do
 		if callback ~= nil then
-			caster[name] = callback
+			if SIGNAL_EVENTS[name] then
+				self.EventConnections[name] = caster[name]:Connect(callback)
+			elseif name == "CanPierce" then
+				assert(self.Settings.Mode == "Serial",
+					"Parallel CanPierce callbacks must be implemented in FastCastEventsModule.")
+				caster.CanPierce = callback
+			end
 		end
 	end
 
@@ -336,6 +352,7 @@ function Wrapper:SetMode(mode: CasterMode)
 		if previousRuntimeState == "Running" then
 			previousLibrary.Stop()
 		end
+		DisconnectEventConnections(self)
 		if oldCaster then
 			oldCaster:Destroy()
 		end
@@ -398,6 +415,7 @@ function Wrapper:SetWorkerCount(workerCount: number)
 		if previousRuntimeState == "Running" then
 			ParallelFastCast.Stop()
 		end
+		DisconnectEventConnections(self)
 		if oldCaster then
 			oldCaster:Destroy()
 		end
@@ -467,9 +485,19 @@ function Wrapper:SetEvent(eventName: string, callback)
 		error("Parallel CanPierce callbacks must be implemented in FastCastEventsModule.", 2)
 	end
 
+	local previousConnection = self.EventConnections[eventName]
+	if previousConnection then
+		previousConnection:Disconnect()
+		self.EventConnections[eventName] = nil
+	end
+
 	self.Events[eventName] = callback
 	if self.State == "Ready" then
-		self.Caster[eventName] = callback
+		if eventName == "CanPierce" then
+			self.Caster.CanPierce = callback
+		elseif callback ~= nil then
+			self.EventConnections[eventName] = self.Caster[eventName]:Connect(callback)
+		end
 	end
 end
 
@@ -680,6 +708,7 @@ function Wrapper:Destroy()
 		if previousRuntimeState == "Running" then
 			library.Stop()
 		end
+		DisconnectEventConnections(self)
 		if caster then
 			caster:Destroy()
 		end
