@@ -89,7 +89,7 @@ local function applyConfiguration(payload)
 	end
 
 	if Wrapper:IsReady() then
-		Wrapper.Caster:SetMovementModeEnabled(true, movementMode)
+		Wrapper.Library.SetMovementModeEnabled(true, movementMode)
 	end
 
 	Wrapper.Behavior.MaxDistance = maxDistance
