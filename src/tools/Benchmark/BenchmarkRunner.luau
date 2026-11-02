@@ -69,8 +69,6 @@ local function runMode(modeName, options)
 	behavior.HighFidelitySegmentSize = options.highFidelitySegmentSize
 	behavior.VisualizeCasts = options.visualizeCasts
 	behavior.CloneTemplate = true
-	behavior.FastCastEventsConfig.UseCastFire = true
-	behavior.FastCastEventsConfig.UseCastTerminating = true
 
 	local cosmeticTemplate = if options.cosmeticTemplate then options.cosmeticTemplate:Clone() else nil
 	if cosmeticTemplate then
@@ -99,21 +97,18 @@ local function runMode(modeName, options)
 	local caster = library.new()
 	local activeCasts = {}
 	local firedCount = 0
-	caster.CastFire = function(cast)
+	local castFireConnection = caster.CastFire:Connect(function(cast)
 		firedCount += 1
-		activeCasts[#activeCasts + 1] = cast
-	end
-	caster.CastTerminating = function(cast)
-		local index = table.find(activeCasts, cast)
-		if index then
-			table.remove(activeCasts, index)
-		end
+		activeCasts[cast.ID] = cast
+	end)
+	local castTerminatingConnection = caster.CastTerminating:Connect(function(cast)
+		activeCasts[cast.ID] = nil
 		local cosmetic = cast and cast.RayInfo and cast.RayInfo.CosmeticBulletObject
 		if cosmetic and cosmetic.Parent then
 			cosmetic:Destroy()
 		end
-	end
-	caster:SetMovementModeEnabled(true, options.movementMode)
+	end)
+	library.SetMovementModeEnabled(true, options.movementMode)
 
 	local result
 	local heartbeatConnection = nil
@@ -179,20 +174,23 @@ local function runMode(modeName, options)
 
 	-- Explicitly terminate remaining casts so one mode cannot pollute the next.
 	local cleanupStarted = os.clock()
-	local castsAtCleanupStart = #activeCasts
-	local castsToTerminate = table.clone(activeCasts)
-	for i = #castsToTerminate, 1, -1 do
-		local cast = castsToTerminate[i]
-		if cast then
-			pcall(function()
-				library:TerminateCast(cast)
-			end)
-		end
+	local castsAtCleanupStart = 0
+	local castsToTerminate = {}
+	for _, cast in activeCasts do
+		castsAtCleanupStart += 1
+		table.insert(castsToTerminate, cast)
+	end
+	for _, cast in castsToTerminate do
+		pcall(function()
+			library.TerminateCast(cast)
+		end)
 	end
 	local cleanupDeadline = os.clock() + 5
-	while #activeCasts > 0 and os.clock() < cleanupDeadline do
+	while next(activeCasts) ~= nil and os.clock() < cleanupDeadline do
 		task.wait()
 	end
+	castFireConnection:Disconnect()
+	castTerminatingConnection:Disconnect()
 	pcall(function()
 		caster:Destroy()
 	end)
@@ -217,18 +215,30 @@ local function runMode(modeName, options)
 	if not ok then
 		return { mode = modeName, castType = options.castType, cleanupMs = cleanupMs,
 			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
-			remainingCastsAtCleanup = #activeCasts, error = tostring(runError) }
+			remainingCastsAtCleanup = (function()
+			local count = 0
+			for _ in activeCasts do count += 1 end
+			return count
+		end)(), error = tostring(runError) }
 	end
 	if not recovered then
 		return { mode = modeName, castType = options.castType, cleanupMs = cleanupMs,
 			cleanupCasts = castsAtCleanupStart, cleanupProjectilesPerSecond = cleanupProjectilesPerSecond,
-			remainingCastsAtCleanup = #activeCasts, error = "Runtime recovery failed: " .. tostring(recoveryError) }
+			remainingCastsAtCleanup = (function()
+			local count = 0
+			for _ in activeCasts do count += 1 end
+			return count
+		end)(), error = "Runtime recovery failed: " .. tostring(recoveryError) }
 	end
 	result.cleanupMs = cleanupMs
 	result.cleanupCasts = castsAtCleanupStart
 	result.cleanupProjectilesPerSecond = cleanupProjectilesPerSecond
-	result.remainingCastsAtCleanup = #activeCasts
-	if #activeCasts > 0 then result.warning = "Cleanup timed out; active casts remain, so results may be contaminated." end
+	result.remainingCastsAtCleanup = (function()
+			local count = 0
+			for _ in activeCasts do count += 1 end
+			return count
+		end)()
+	if next(activeCasts) ~= nil then result.warning = "Cleanup timed out; active casts remain, so results may be contaminated." end
 	return result
 end
 
